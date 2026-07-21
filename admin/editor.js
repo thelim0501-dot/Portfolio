@@ -41,6 +41,36 @@ let pageSortable = null;
 
 let selectedPage = -1;
 
+let dragTargetIndex = -1;
+
+let dragTargetCard = null;
+
+function clearDragTarget(){
+
+    dragTargetCard?.classList.remove("swap-target");
+
+    dragTargetCard = null;
+
+    dragTargetIndex = -1;
+
+}
+
+function setDragTarget(card, index){
+
+    if(dragTargetCard !== card){
+
+        dragTargetCard?.classList.remove("swap-target");
+
+        dragTargetCard = card;
+
+        dragTargetCard.classList.add("swap-target");
+
+    }
+
+    dragTargetIndex = index;
+
+}
+
 // ======================================================
 // Undo / Redo
 // ======================================================
@@ -348,6 +378,51 @@ header.addEventListener("click",()=>{
 
         group: "portfolio",
 
+        onChoose(evt){
+
+            clearDragTarget();
+
+            const draggedIndex = Number(evt.item.dataset.index);
+
+            if(
+                selectedPage >= 0 ||
+                !selectedImages.includes(draggedIndex)
+            ){
+
+                selectImage(draggedIndex);
+
+            }
+
+        },
+
+        onMove(evt){
+
+            if(selectedImages.length !== 1){
+
+                return;
+
+            }
+
+            const target = evt.related;
+
+            const targetIndex = Number(target?.dataset.index);
+
+            if(
+                target?.classList.contains("image") &&
+                Number.isInteger(targetIndex) &&
+                targetIndex !== Number(evt.dragged.dataset.index)
+            ){
+
+                setDragTarget(target, targetIndex);
+
+                return false;
+
+            }
+
+            clearDragTarget();
+
+        },
+
         onStart(){
 
     document
@@ -372,6 +447,10 @@ emptyInsertThreshold: 80,
 
         onEnd: async function (evt) {
 
+            const swapTarget = dragTargetIndex;
+
+            clearDragTarget();
+
             const fromPage = pageIndex;
 
             const toPage = [...pageCanvas.children].indexOf(
@@ -390,7 +469,16 @@ emptyInsertThreshold: 80,
 
 }
 
-            await moveImageTo(fromIndex, toIndex);
+            if(swapTarget >= 0){
+
+                await swapImages(fromIndex, swapTarget);
+
+            }
+            else{
+
+                await moveImageTo(fromIndex, toIndex);
+
+            }
 
             document
 
@@ -1029,6 +1117,50 @@ async function movePageGroup(){
 // ======================================================
 // Move Engine
 // ======================================================
+
+async function swapImages(fromIndex, toIndex){
+
+    if(
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        fromIndex >= images.length ||
+        toIndex < 0 ||
+        toIndex >= images.length
+    ){
+
+        return;
+
+    }
+
+    saveState();
+
+    const swappedImage = images[toIndex];
+
+    images[toIndex] = images[fromIndex];
+
+    images[fromIndex] = swappedImage;
+
+    selectedPage = -1;
+
+    selectedImages = [toIndex];
+
+    selectedIndex = toIndex;
+
+    lastSelectedIndex = toIndex;
+
+    autoSave();
+
+    refreshUploadPageList();
+
+    renderPages();
+
+    requestAnimationFrame(()=>{
+
+        selectImage(toIndex);
+
+    });
+
+}
 
 async function moveImageTo(fromIndex, toIndex){
 
