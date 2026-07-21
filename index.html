@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio | Hyeongeol Lim</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div id="loader">
+
+    <div class="loader-content">
+
+        <h1 id="loaderTitle">PORTFOLIO</h1>
+
+        <div class="loaderSelected" id="loaderSelected">
+
+            <span></span>
+
+            <p>Selected Works</p>
+
+            <span></span>
+
+        </div>
+
+    </div>
+
+</div>
+    
+<div id="app">
+
+    <!-- ===========================
+            PAGE 01
+    ============================ -->
+
+    <section class="page cover-page active">
+
+        <div class="cover-content">
+
+            <h1>PORTFOLIO</h1>
+
+            <div class="selected">
+
+                <span></span>
+
+                <p>Selected Works</p>
+
+                <span></span>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ===========================
+            PAGE 02
+    ============================ -->
+
+    <section class="page intro-page">
+
+        <div class="intro-content">
+
+    <h1>INTERIOR VISUALIZATION</h1>
+
+    <p class="intro-tools">
+        3ds Max · V-Ray · Photoshop
+    </p>
+
+    <h2>Hyeongeol Lim</h2>
+
+</div>
+
+    </section>
+
+
+
+    <!-- ===========================
+            PAGE 03
+    ============================ -->
+
+    <section id="portfolioPages"></section>
+
+</div>
+
+
+
+<!-- ===========================
+        Navigation
+=========================== -->
+
+<div id="navigation">
+
+    <button id="prevBtn">&#10094;</button>
+
+    <div id="pageNumber">
+
+        01 / 03
+
+    </div>
+
+    <button id="nextBtn">&#10095;</button>
+
+</div>
+
+
+
+<!-- ===========================
+        Image Viewer
+=========================== -->
+
+<div id="viewer">
+
+    <button id="closeViewer">×</button>
+
+    <button id="viewerPrev">&#10094;</button>
+
+    <img id="viewerImage" src="" alt="">
+
+    <button id="viewerNext">&#10095;</button>
+
+    <div id="viewerCount">1 / 4</div>
+
+</div>
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

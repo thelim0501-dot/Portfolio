@@ -1,0 +1,455 @@
+/* ======================================
+    RESET
+====================================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,
+body{
+
+    width:100%;
+    height:100%;
+
+    background:#0f0f10;
+
+    color:#fff;
+
+    font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    sans-serif;
+
+    overflow:hidden;
+
+}
+
+/* ======================================
+    LAYOUT
+====================================== */
+
+body{
+
+    display:grid;
+
+    grid-template-columns:300px 1fr;
+
+}
+
+/* ======================================
+    SIDEBAR
+====================================== */
+
+.sidebar{
+
+    height:100vh;
+
+    background:#161616;
+
+    border-right:1px solid rgba(255,255,255,.08);
+
+    padding:28px;
+
+}
+
+.logo{
+
+    font-size:22px;
+
+    font-weight:700;
+
+    letter-spacing:2px;
+
+    margin-bottom:40px;
+
+}
+
+#newProject{
+
+    width:100%;
+
+    height:52px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#ffffff;
+
+    color:#111;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+#newProject:hover{
+
+    transform:translateY(-2px);
+
+}
+
+.project-list{
+
+    margin-top:30px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:12px;
+
+}
+
+/* ======================================
+    CONTENT
+====================================== */
+
+.content{
+
+    padding:40px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:30px;
+
+    overflow:auto;
+
+}
+
+/* ======================================
+    UPLOAD
+====================================== */
+
+.upload-area{
+
+    height:220px;
+
+    border:2px dashed rgba(255,255,255,.15);
+
+    border-radius:18px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+}
+
+.upload-area:hover{
+
+    border-color:white;
+
+    background:rgba(255,255,255,.03);
+
+}
+
+.upload-area h2{
+
+    font-size:30px;
+
+    font-weight:600;
+
+}
+
+.upload-area p{
+
+    margin-top:12px;
+
+    color:#8d8d8d;
+
+}
+
+/* ======================================
+    IMAGE LIST
+====================================== */
+
+.image-list{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+
+    gap:22px;
+
+}
+
+/* ======================================
+    SAVE
+====================================== */
+
+#saveBtn,
+#publishBtn{
+
+    width:180px;
+
+    height:54px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#ffffff;
+
+    color:#111;
+
+    font-size:16px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+#saveBtn:hover,
+#publishBtn:not(:disabled):hover{
+
+    transform:translateY(-2px);
+
+}
+
+.action-bar{
+
+    align-self:flex-end;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+}
+
+.publish-status{
+
+    color:#9a9a9a;
+
+    font-size:12px;
+
+    text-align:right;
+
+}
+
+.publish-status[data-state="ready"]{
+
+    color:#6eff95;
+
+}
+
+.publish-status[data-state="error"]{
+
+    color:#ff9b9b;
+
+}
+
+#publishBtn:disabled{
+
+    cursor:not-allowed;
+
+    opacity:.45;
+
+}
+
+/* ======================================
+    IMAGE CARD
+====================================== */
+
+.image-card{
+
+    background:#181818;
+
+    border-radius:14px;
+
+    overflow:hidden;
+
+    border:1px solid rgba(255,255,255,.08);
+
+}
+
+.image-card img{
+
+    width:100%;
+
+    aspect-ratio:16/9;
+
+    object-fit:cover;
+
+    display:block;
+
+}
+
+.filename{
+
+    padding:14px;
+
+    font-size:13px;
+
+    color:#bdbdbd;
+
+    white-space:nowrap;
+
+    overflow:hidden;
+
+    text-overflow:ellipsis;
+
+}
+
+/* ======================================
+    Sortable
+====================================== */
+
+.image-card{
+
+    position:relative;
+
+    user-select:none;
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease,
+        opacity .2s ease;
+
+}
+
+.image-card:hover{
+
+    transform:translateY(-3px);
+
+    box-shadow:
+        0 12px 35px rgba(0,0,0,.25);
+
+}
+
+.image-card.dragging{
+
+    opacity:.45;
+
+    transform:scale(.96);
+
+}
+
+.drag-handle{
+
+    position:absolute;
+
+    top:10px;
+    right:10px;
+
+    width:34px;
+    height:34px;
+
+    display:flex;
+
+    justify-content:center;
+    align-items:center;
+
+    border-radius:8px;
+
+    background:rgba(0,0,0,.45);
+
+    color:white;
+
+    font-size:18px;
+
+    cursor:grab;
+
+    backdrop-filter:blur(8px);
+
+    transition:.2s;
+
+}
+
+.drag-handle:hover{
+
+    background:white;
+
+    color:black;
+
+}
+
+.drag-handle:active{
+
+    cursor:grabbing;
+
+}
+
+/* ======================================================
+    PAGE LAYOUT
+====================================================== */
+
+.page-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,minmax(520px,1fr));
+
+    gap:42px;
+
+    align-items:start;
+
+}
+
+.page{
+
+    background:#171717;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:16px;
+
+    padding:22px;
+
+}
+
+.page-number{
+
+    margin-bottom:18px;
+
+    font-size:13px;
+
+    letter-spacing:3px;
+
+    color:#8f8f8f;
+
+}
+
+.page-images{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:14px;
+
+}
+
+.page-images .image-card{
+
+    margin:0;
+
+}
+
+.page-images .image-card img{
+
+    aspect-ratio:16/10;
+
+}

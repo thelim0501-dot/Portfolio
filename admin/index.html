@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Portfolio CMS</title>
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+    <div class="logo">
+
+        Portfolio CMS
+
+    </div>
+
+</div>
+
+<div class="content">
+
+    <div class="upload-area" id="uploadArea">
+
+        <h2>Drag Images Here</h2>
+
+        <p>or click to upload</p>
+
+        <input
+            type="file"
+            id="fileInput"
+            multiple
+            accept="image/*"
+            hidden>
+
+    </div>
+
+    <div
+        id="imageList"
+        class="image-list">
+
+    </div>
+
+    <div class="action-bar">
+
+        <span
+            id="publishStatus"
+            class="publish-status"
+            aria-live="polite">
+
+        </span>
+
+        <button
+            id="publishBtn"
+            type="button"
+            disabled>
+
+            PUBLISH
+
+        </button>
+
+        <button id="saveBtn">
+
+            SAVE
+
+        </button>
+
+    </div>
+
+</div>
+
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+
+<script src="app.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Portfolio Editor</title>
+
+    <link rel="stylesheet" href="editor.css">
+
+</head>
+
+<body>
+
+<div class="toolbar">
+
+    <button id="uploadBtn">
+
+        + Add Images
+
+    </button>
+
+    <div class="toolbar-divider"></div>
+
+    <label class="toolbar-label">
+
+    Page
+
+</label>
+
+    <select id="uploadPage">
+
+    </select>
+
+    <label class="toolbar-label">
+
+    Position
+
+</label>
+
+    <select id="uploadPosition">
+
+        <option value="1">①</option>
+        <option value="2">②</option>
+        <option value="3">③</option>
+        <option value="4">④</option>
+
+        <option value="end" selected>
+
+            마지막
+
+        </option>
+
+    </select>
+
+    <div class="toolbar-divider"></div>
+
+    <input
+        type="file"
+        id="fileInput"
+        multiple
+        accept="image/*"
+        style="display:none;">
+
+    <div class="toolbar-spacer"></div>
+
+    <span
+        id="publishStatus"
+        class="publish-status"
+        aria-live="polite">
+
+    </span>
+
+    <button
+        id="publishBtn"
+        type="button"
+        disabled>
+
+        PUBLISH
+
+    </button>
+
+</div>
+
+<div class="editor-layout">
+
+    <div
+        id="pageCanvas"
+        class="page-canvas">
+
+    </div>
+
+    <aside
+        class="property-panel">
+
+        <div class="property-title">
+
+            Properties
+
+        </div>
+
+        <div
+            id="noSelection"
+            class="property-empty">
+
+            Select an image.
+
+        </div>
+
+        <div
+            id="propertyContent"
+            style="display:none;">
+
+            <div class="property-group">
+
+                <label>
+
+                    Selected
+
+                </label>
+
+                <div
+                    id="selectedFile"
+                    class="property-value">
+
+                </div>
+
+            </div>
+
+            <div class="property-group">
+
+                <button id="moveBtn">
+
+                    Move To...
+
+                </button>
+
+            </div>
+
+            <div class="property-group">
+
+    <button id="quickMoveBtn">
+
+        Quick Move...
+
+    </button>
+
+</div>
+
+<div class="property-group" id="pageMoveGroup" style="display:none;">
+
+    <button id="movePageBtn">
+
+        Move Page...
+
+    </button>
+
+</div>
+
+<div id="movePagePanel" style="display:none;">
+
+    <div class="property-group">
+
+        <label>
+
+            Target Page
+
+        </label>
+
+        <input
+            id="movePageInput"
+            type="number"
+            min="1">
+
+    </div>
+
+    <div class="property-group">
+
+        <button id="confirmMovePage">
+
+            Move
+
+        </button>
+
+    </div>
+
+</div>
+
+            <div class="property-group">
+
+    <button id="moveFirstBtn">
+
+        Move To First Page
+
+    </button>
+
+</div>
+
+            <div
+                id="movePanel"
+                style="display:none;">
+
+                <div class="property-group">
+
+                    <label>
+
+                        Page
+
+                    </label>
+
+                    <select id="movePage">
+
+                    </select>
+
+                </div>
+
+                <div class="property-group">
+
+                    <label>
+
+                        Position
+
+                    </label>
+
+                    <select id="movePosition">
+
+                        <option value="1">①</option>
+                        <option value="2">②</option>
+                        <option value="3">③</option>
+                        <option value="4">④</option>
+
+                    </select>
+
+                </div>
+
+                <div class="property-group">
+
+                    <button id="confirmMove">
+
+                        Move
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="property-group">
+
+                <button id="duplicateBtn">
+
+                    Duplicate
+
+                </button>
+
+            </div>
+
+            <div class="property-group">
+
+                <button id="deleteBtn">
+
+                    Delete
+
+                </button>
+
+            </div>
+
+            <div class="property-group">
+
+    <label>
+
+        New File Name
+
+    </label>
+
+    <input
+        id="renameInput"
+        type="text"
+        class="property-input">
+
+</div>
+
+            <div class="property-group">
+
+    <button id="renameBtn">
+
+        Rename File
+
+    </button>
+
+</div>
+
+<div
+    id="backupPanel"
+    style="display:none;"
+    class="property-group">
+
+    <label>
+
+        Backup History
+
+    </label>
+
+    <select id="backupList">
+
+    </select>
+
+    <button id="restoreSelectedBackup">
+
+        Restore Selected
+
+    </button>
+
+</div>
+
+<div class="property-group">
+
+    <button id="restoreBackupBtn">
+
+        Restore Backup
+
+    </button>
+
+</div>
+
+        </div>
+
+    </aside>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+
+<script src="editor.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,944 @@
+/* ======================================================
+    Portfolio Builder
+    Version 2.1
+====================================================== */
+
+/* =========================
+        RESET
+========================= */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,
+body{
+
+    width:100%;
+    height:100%;
+
+    overflow:hidden;
+
+    background:#0a0a0a;
+    color:#fff;
+
+    font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    sans-serif;
+
+    -webkit-font-smoothing:antialiased;
+
+}
+
+/* =========================
+        APP
+========================= */
+
+#app{
+
+    width:100vw;
+    height:100vh;
+
+    position:relative;
+
+    overflow:hidden;
+
+    opacity:0;
+
+    transition:opacity .8s ease;
+
+}
+
+#app.show{
+
+    opacity:1;
+
+}
+
+/* =========================
+        PAGE
+========================= */
+
+.page{
+
+    position:absolute;
+
+    inset:0;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    padding:70px 0 70px;
+
+    opacity:0;
+
+    visibility:hidden;
+
+    transform:translateY(40px);
+
+    transition:
+        opacity .6s,
+        transform .6s;
+
+}
+
+.page.active{
+
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+
+}
+
+/* ======================================================
+    COVER
+====================================================== */
+
+.cover-content{
+
+    text-align:center;
+
+}
+
+.cover-content h1{
+
+    font-size:110px;
+    font-weight:800;
+    letter-spacing:14px;
+
+}
+
+.selected{
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    gap:16px;
+
+    margin-top:30px;
+
+}
+
+.selected span{
+
+    width:60px;
+    height:1px;
+
+    background:#6d6d6d;
+
+}
+
+.selected p{
+
+    color:#bdbdbd;
+
+    font-size:16px;
+
+    font-weight:300;
+
+    letter-spacing:4px;
+
+}
+
+/* ======================================================
+    INTRO
+====================================================== */
+
+.intro-content{
+
+    text-align:center;
+
+}
+
+.intro-content h1{
+
+    font-size:60px;
+
+    font-weight:300;
+
+    letter-spacing:10px;
+
+}
+
+.intro-tools{
+
+    margin-top:34px;
+
+    font-size:15px;
+
+    font-weight:300;
+
+    letter-spacing:5px;
+
+    color:#8f8f8f;
+
+}
+
+.intro-content h2{
+
+    margin-top:55px;
+
+    font-size:22px;
+
+    font-weight:500;
+
+    letter-spacing:6px;
+
+    color:#d9d9d9;
+
+}
+
+/* ======================================================
+    GALLERY
+====================================================== */
+
+.gallery{
+
+    width:min(1380px,78vw);
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:28px;
+
+}
+
+.portfolio-page{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    width:100%;
+
+    height:100vh;
+
+}
+
+/* ======================================================
+    IMAGE
+====================================================== */
+
+.image-box{
+
+    position:relative;
+
+    aspect-ratio:16/9;
+
+    overflow:hidden;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    background:#111;
+
+    cursor:pointer;
+
+    opacity:0;
+
+    transform:translateY(28px);
+
+    transition:
+        opacity .6s ease,
+        transform .6s ease,
+        border-color .35s ease,
+        box-shadow .35s ease;
+
+}
+
+.image-box.show{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+.image-box img{
+
+    width:100%;
+    height:100%;
+
+    display:block;
+
+    object-fit:cover;
+
+    transition:transform .45s ease;
+
+}
+
+/* ==========================================
+    IMAGE OVERLAY
+========================================== */
+
+.image-overlay{
+
+    position:absolute;
+
+    left:0;
+    right:0;
+    bottom:0;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:24px 26px;
+
+    background:linear-gradient(
+        to top,
+        rgba(0,0,0,.55),
+        rgba(0,0,0,0)
+    );
+
+    opacity:0;
+
+    transform:translateY(18px);
+
+    transition:
+        opacity .35s ease,
+        transform .35s ease;
+
+}
+
+/* ==========================================
+    SHINE EFFECT
+========================================== */
+
+.image-box::before{
+
+    content:"";
+
+    position:absolute;
+
+    top:0;
+    left:-130%;
+
+    width:60%;
+    height:100%;
+
+    pointer-events:none;
+
+    background:linear-gradient(
+
+        110deg,
+
+        rgba(255,255,255,0) 0%,
+
+        rgba(255,255,255,.12) 48%,
+
+        rgba(255,255,255,.35) 50%,
+
+        rgba(255,255,255,.12) 52%,
+
+        rgba(255,255,255,0) 100%
+
+    );
+
+    transform:skewX(-25deg);
+
+    transition:left .65s ease;
+
+}
+
+.image-box:hover::before{
+
+    left:160%;
+
+}
+
+.image-overlay span{
+
+    color:rgba(255,255,255,.92);
+
+    letter-spacing:4px;
+
+    font-size:13px;
+
+    font-weight:500;
+
+    text-transform:uppercase;
+
+}
+
+.image-overlay .arrow{
+
+    font-size:22px;
+
+    transition:transform .3s ease;
+
+}
+
+.image-box:hover{
+
+    border-color:rgba(255,255,255,.25);
+
+    box-shadow:
+        0 12px 40px rgba(0,0,0,.35);
+
+}
+
+.image-box:hover img{
+
+    transform:scale(1.035);
+
+}
+
+.image-box:active img{
+
+    transform:scale(1.06);
+
+    transition:transform .15s ease;
+
+}
+
+.image-box:hover .image-overlay{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+.image-box:hover .arrow{
+
+    transform:
+        translateX(5px)
+        translateY(-5px);
+
+}
+/* ======================================================
+    NAVIGATION
+====================================================== */
+
+#navigation{
+
+    position:fixed;
+
+    left:50%;
+    bottom:28px;
+
+    transform:translateX(-50%);
+
+    display:flex;
+    align-items:center;
+    gap:26px;
+
+    padding:16px 30px;
+
+    border-radius:999px;
+
+    background:rgba(255,255,255,.05);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    backdrop-filter:blur(20px);
+
+    z-index:999;
+
+}
+
+#navigation button{
+
+    width:46px;
+    height:46px;
+
+    border:none;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.08);
+
+    color:white;
+
+    font-size:24px;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+#navigation button:hover{
+
+    background:white;
+
+    color:black;
+
+    transform:scale(1.08);
+
+}
+
+#navigation button:disabled{
+
+    opacity:.25;
+
+    cursor:default;
+
+}
+
+#pageNumber{
+
+    width:90px;
+
+    text-align:center;
+
+    font-size:15px;
+
+    letter-spacing:3px;
+
+    color:#d8d8d8;
+
+}
+
+/* ======================================================
+    VIEWER
+====================================================== */
+
+#viewer{
+
+    position:fixed;
+    inset:0;
+
+    display:flex;
+
+    justify-content:center;
+    align-items:center;
+
+    background:rgba(0,0,0,.96);
+
+    opacity:0;
+    visibility:hidden;
+
+    transition:.35s;
+
+    z-index:9999;
+
+}
+
+#viewer.show{
+
+    opacity:1;
+    visibility:visible;
+
+}
+
+/* ==========================================
+    VIEWER IMAGE
+========================================== */
+
+#viewerImage{
+
+    max-width:85vw;
+    max-height:85vh;
+
+    object-fit:contain;
+
+    display:block;
+
+}
+
+/* ======================================================
+    VIEWER BUTTONS
+====================================================== */
+
+#viewerPrev,
+#viewerNext{
+
+    position:absolute;
+
+    top:50%;
+
+    transform:translateY(-50%);
+
+    width:60px;
+    height:60px;
+
+    border:none;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.08);
+
+    color:white;
+
+    font-size:32px;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    backdrop-filter:blur(10px);
+
+}
+
+#viewerPrev{
+
+    left:40px;
+
+}
+
+#viewerNext{
+
+    right:40px;
+
+}
+
+#viewerPrev:hover,
+#viewerNext:hover{
+
+    background:white;
+
+    color:black;
+
+    transform:translateY(-50%) scale(1.08);
+
+}
+
+#closeViewer{
+
+    position:absolute;
+
+    top:36px;
+    right:40px;
+
+    width:52px;
+    height:52px;
+
+    border:none;
+    background:none;
+
+    color:white;
+
+    font-size:34px;
+
+    cursor:pointer;
+
+}
+
+#closeViewer:hover{
+
+    transform:rotate(90deg);
+
+}
+
+/* ======================================================
+    VIEWER COUNT
+====================================================== */
+
+#viewerCount{
+
+    position:absolute;
+
+    bottom:35px;
+
+    left:50%;
+
+    transform:translateX(-50%);
+
+    color:white;
+
+    font-size:18px;
+
+    letter-spacing:3px;
+
+    font-variant-numeric:tabular-nums;
+
+    z-index:20;      /* 추가 */
+    pointer-events:none; /* 추가 */
+
+}
+
+/* ======================================================
+    LOADER
+====================================================== */
+
+#loader{
+
+    position:fixed;
+    inset:0;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:#0a0a0a;
+
+    z-index:99999;
+
+    transition:
+        opacity .8s ease,
+        visibility .8s ease;
+
+}
+
+#loader.hide{
+
+    opacity:0;
+    visibility:hidden;
+
+}
+
+.loader-content{
+
+    text-align:center;
+
+}
+
+#loaderTitle{
+
+    font-size:110px;
+    font-weight:800;
+    letter-spacing:14px;
+
+    color:#8a8a8a;
+
+    opacity:.18;
+
+    filter:brightness(.18) blur(1.6px);
+
+    text-shadow:none;
+
+    animation:flickerLamp 2.4s linear forwards;
+
+    animation-play-state:paused;
+
+    will-change:filter,opacity,text-shadow;
+
+}
+
+#loaderSelected{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:16px;
+
+    margin-top:30px;
+
+    opacity:0;
+
+    transform:translateY(12px);
+
+    transition:
+        opacity .45s ease,
+        transform .45s ease;
+
+}
+
+#loaderSelected.show{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+#loaderSelected span{
+
+    width:60px;
+    height:1px;
+
+    background:#6d6d6d;
+
+}
+
+#loaderSelected p{
+
+    color:#bdbdbd;
+
+    font-size:16px;
+
+    font-weight:300;
+
+    letter-spacing:4px;
+
+}
+
+
+/* ==========================
+    Lamp Animation
+========================== */
+
+@keyframes flickerLamp{
+
+    /* 꺼진 형광등 */
+    0%{
+
+        opacity:.18;
+
+        filter:brightness(.15) blur(1.8px);
+
+        color:#6d6d6d;
+
+        text-shadow:none;
+
+    }
+
+    /* 전기 들어오기 시작 */
+    18%{
+
+        opacity:.28;
+
+        filter:brightness(.45) blur(1.2px);
+
+    }
+
+    /* 다시 약해짐 */
+    24%{
+
+        opacity:.12;
+
+        filter:brightness(.18) blur(1.8px);
+
+    }
+
+    /* 첫 점등 */
+    38%{
+
+        opacity:.72;
+
+        filter:brightness(1.3) blur(.5px);
+
+        text-shadow:
+            0 0 8px rgba(255,255,255,.30);
+
+    }
+
+    /* 살짝 꺼짐 */
+    46%{
+
+        opacity:.20;
+
+        filter:brightness(.25) blur(1.4px);
+
+        text-shadow:none;
+
+    }
+
+    /* 최종 점등 */
+    70%{
+
+        opacity:1;
+
+        filter:brightness(2) blur(0);
+
+        text-shadow:
+            0 0 10px rgba(255,255,255,.60),
+            0 0 22px rgba(255,255,255,.35),
+            0 0 45px rgba(255,255,255,.18);
+
+    }
+
+    /* 안정화 */
+    100%{
+
+        opacity:1;
+
+        filter:brightness(1) blur(0);
+
+        text-shadow:none;
+
+        color:#fff;
+
+    }
+
+}
+
+.gallery[data-count="1"]{
+
+    display:flex;
+
+    justify-content:center;
+
+}
+
+.gallery[data-count="1"] .image-box{
+
+    width:calc(50% - 14px);
+
+}
+
+.gallery[data-count="2"]{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    justify-content:center;
+
+}
+
+.gallery[data-count="3"]{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+}/* ==========================================
+    LAST PAGE LAYOUT
+========================================== */
+
+.gallery.count-1{
+
+    display:flex;
+
+    justify-content:center;
+
+}
+
+.gallery.count-1 .image-box{
+
+    width:48%;
+
+}
+
+.gallery.count-2{
+
+    display:flex;
+
+    justify-content:center;
+
+    gap:28px;
+
+}
+
+.gallery.count-2 .image-box{
+
+    width:calc(50% - 14px);
+
+}
+
+.gallery.count-3{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:28px;
+
+}
+
+.gallery.count-3 .image-box:last-child{
+
+    grid-column:1 / 3;
+
+    justify-self:center;
+
+    width:calc(50% - 14px);
+
+}
