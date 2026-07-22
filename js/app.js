@@ -50,6 +50,7 @@ class PortfolioApp {
         this.activeMediaType = null;
         this.pageTouchStart = null;
         this.imageTouchStart = null;
+        this.imageMouseDrag = null;
         this.imageZoom = 1;
         this.imageTranslateX = 0;
         this.imageTranslateY = 0;
@@ -253,6 +254,36 @@ class PortfolioApp {
             event.preventDefault();
 
             this.toggleImageZoom();
+
+        });
+
+        this.viewerImage.addEventListener("dragstart", event => {
+
+            event.preventDefault();
+
+        });
+
+        this.viewerImage.addEventListener("mousedown", event => {
+
+            this.handleImageMouseDown(event);
+
+        });
+
+        window.addEventListener("mousemove", event => {
+
+            this.handleImageMouseMove(event);
+
+        });
+
+        window.addEventListener("mouseup", () => {
+
+            this.stopImageMouseDrag();
+
+        });
+
+        window.addEventListener("blur", () => {
+
+            this.stopImageMouseDrag();
 
         });
 
@@ -996,6 +1027,55 @@ class PortfolioApp {
 
     }
 
+    handleImageMouseDown(event) {
+
+        if(event.button !== 0 || this.imageZoom <= 1){
+
+            return;
+
+        }
+
+        event.preventDefault();
+
+        this.imageMouseDrag = {
+            x: event.clientX,
+            y: event.clientY,
+            translateX: this.imageTranslateX,
+            translateY: this.imageTranslateY
+        };
+
+        this.viewerImage.classList.add("is-dragging");
+
+    }
+
+    handleImageMouseMove(event) {
+
+        if(!this.imageMouseDrag){
+
+            return;
+
+        }
+
+        event.preventDefault();
+
+        this.imageTranslateX =
+            this.imageMouseDrag.translateX + event.clientX - this.imageMouseDrag.x;
+
+        this.imageTranslateY =
+            this.imageMouseDrag.translateY + event.clientY - this.imageMouseDrag.y;
+
+        this.constrainImagePan();
+        this.applyImageTransform(false);
+
+    }
+
+    stopImageMouseDrag() {
+
+        this.imageMouseDrag = null;
+        this.viewerImage.classList.remove("is-dragging");
+
+    }
+
     handleImageTouchStart(event) {
 
         const target = event.target instanceof Element ? event.target : null;
@@ -1301,6 +1381,8 @@ class PortfolioApp {
     }
 
     resetImageZoom() {
+
+        this.stopImageMouseDrag();
 
         this.imageZoom = 1;
 

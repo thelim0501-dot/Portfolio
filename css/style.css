@@ -1062,6 +1062,12 @@ body{
 
 }
 
+#viewerImage.is-zoomed.is-dragging{
+
+    cursor:grabbing;
+
+}
+
 #viewer.media-loading #viewerImage{
 
     opacity:0;
