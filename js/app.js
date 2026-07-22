@@ -56,7 +56,7 @@ class PortfolioApp {
         this.imageTranslateY = 0;
         this.pinchStartDistance = 0;
         this.pinchStartZoom = 1;
-        this.lastImageTap = 0;
+        this.suppressImageClick = false;
         this.videoTouchStart = null;
         this.suppressNextCardClick = false;
         this.lastFocusedElement = null;
@@ -249,11 +249,18 @@ class PortfolioApp {
 
         );
 
-        this.viewerImage.addEventListener("dblclick", event => {
+        this.viewerImage.addEventListener("click", event => {
 
             event.preventDefault();
 
-            this.toggleImageZoom();
+            if(this.suppressImageClick){
+
+                this.suppressImageClick = false;
+                return;
+
+            }
+
+            this.toggleImageZoom(event.clientX, event.clientY);
 
         });
 
@@ -277,7 +284,21 @@ class PortfolioApp {
 
         window.addEventListener("mouseup", () => {
 
+            const dragged = Boolean(this.imageMouseDrag?.moved);
+
             this.stopImageMouseDrag();
+
+            if(dragged){
+
+                this.suppressImageClick = true;
+
+                window.setTimeout(() => {
+
+                    this.suppressImageClick = false;
+
+                }, 0);
+
+            }
 
         });
 
@@ -1041,7 +1062,8 @@ class PortfolioApp {
             x: event.clientX,
             y: event.clientY,
             translateX: this.imageTranslateX,
-            translateY: this.imageTranslateY
+            translateY: this.imageTranslateY,
+            moved: false
         };
 
         this.viewerImage.classList.add("is-dragging");
@@ -1058,11 +1080,20 @@ class PortfolioApp {
 
         event.preventDefault();
 
+        const deltaX = event.clientX - this.imageMouseDrag.x;
+        const deltaY = event.clientY - this.imageMouseDrag.y;
+
+        if(Math.hypot(deltaX, deltaY) >= 4){
+
+            this.imageMouseDrag.moved = true;
+
+        }
+
         this.imageTranslateX =
-            this.imageMouseDrag.translateX + event.clientX - this.imageMouseDrag.x;
+            this.imageMouseDrag.translateX + deltaX;
 
         this.imageTranslateY =
-            this.imageMouseDrag.translateY + event.clientY - this.imageMouseDrag.y;
+            this.imageMouseDrag.translateY + deltaY;
 
         this.constrainImagePan();
         this.applyImageTransform(false);
@@ -1258,7 +1289,7 @@ class PortfolioApp {
 
         ){
 
-            this.lastImageTap = 0;
+            event.preventDefault();
 
             if(deltaX < 0){
 
@@ -1274,41 +1305,11 @@ class PortfolioApp {
 
         }
 
-        else if(
-
-            this.imageZoom <= 1.01 &&
-
-            duration < 320 &&
-
-            Math.abs(deltaX) < 12 &&
-
-            Math.abs(deltaY) < 12
-
-        ){
-
-            const currentTime = Date.now();
-
-            if(currentTime - this.lastImageTap < 320){
-
-                this.toggleImageZoom();
-
-                this.lastImageTap = 0;
-
-            }
-
-            else {
-
-                this.lastImageTap = currentTime;
-
-            }
-
-        }
-
         this.imageTouchStart = null;
 
     }
 
-    toggleImageZoom() {
+    toggleImageZoom(clientX, clientY) {
 
         if(this.imageZoom > 1){
 
@@ -1318,11 +1319,25 @@ class PortfolioApp {
 
         }
 
+        const imageRect = this.viewerImage.getBoundingClientRect();
+        const imageCenterX = imageRect.left + imageRect.width / 2;
+        const imageCenterY = imageRect.top + imageRect.height / 2;
+        const zoomCenterX = Number.isFinite(clientX)
+            ? Math.max(imageRect.left, Math.min(imageRect.right, clientX))
+            : imageCenterX;
+        const zoomCenterY = Number.isFinite(clientY)
+            ? Math.max(imageRect.top, Math.min(imageRect.bottom, clientY))
+            : imageCenterY;
+
         this.imageZoom = 2.5;
 
-        this.imageTranslateX = 0;
+        this.imageTranslateX =
+            (1 - this.imageZoom) * (zoomCenterX - imageCenterX);
 
-        this.imageTranslateY = 0;
+        this.imageTranslateY =
+            (1 - this.imageZoom) * (zoomCenterY - imageCenterY);
+
+        this.constrainImagePan();
 
         this.applyImageTransform(true);
 
