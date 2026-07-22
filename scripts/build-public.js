@@ -104,7 +104,13 @@ const thumbnailFolder = path.join(outputFolder, "thumbnails");
 
 const thumbnailMap = {};
 
+const viewerFolder = path.join(outputFolder, "viewer-images");
+
+const viewerMap = {};
+
 fs.mkdirSync(thumbnailFolder, { recursive: true });
+
+fs.mkdirSync(viewerFolder, { recursive: true });
 
 for(const fileName of publicVisuals){
 
@@ -118,17 +124,23 @@ for(const fileName of publicVisuals){
 
     const sourceImagePath = path.join(projectRoot, "images", fileName);
 
-    const thumbnailName = `${crypto
+    const sourceImageBytes = fs.readFileSync(sourceImagePath);
+
+    const contentHash = crypto
 
         .createHash("sha1")
 
         .update(fileName)
 
-        .update(fs.readFileSync(sourceImagePath))
+        .update(sourceImageBytes)
 
         .digest("hex")
 
-        .slice(0, 16)}.webp`;
+        .slice(0, 16);
+
+    const thumbnailName = `${contentHash}.webp`;
+
+    const viewerName = `${contentHash}.webp`;
 
     await sharp(sourceImagePath)
 
@@ -142,6 +154,18 @@ for(const fileName of publicVisuals){
 
     thumbnailMap[fileName] = `thumbnails/${thumbnailName}`;
 
+    await sharp(sourceImagePath)
+
+        .rotate()
+
+        .resize({ width: 2560, withoutEnlargement: true })
+
+        .webp({ quality: 88, smartSubsample: true })
+
+        .toFile(path.join(viewerFolder, viewerName));
+
+    viewerMap[fileName] = `viewer-images/${viewerName}`;
+
 }
 
 fs.writeFileSync(
@@ -149,6 +173,16 @@ fs.writeFileSync(
     path.join(outputFolder, "thumbnail-map.json"),
 
     JSON.stringify(thumbnailMap, null, 2),
+
+    "utf8"
+
+);
+
+fs.writeFileSync(
+
+    path.join(outputFolder, "viewer-map.json"),
+
+    JSON.stringify(viewerMap, null, 2),
 
     "utf8"
 
@@ -164,9 +198,17 @@ const thumbnailBytes = fs.readdirSync(thumbnailFolder)
 
     }, 0);
 
+const viewerBytes = fs.readdirSync(viewerFolder)
+
+    .reduce((total, fileName) => {
+
+        return total + fs.statSync(path.join(viewerFolder, fileName)).size;
+
+    }, 0);
+
 console.log(
 
-    `Public build complete: ${publicImages.length} images, ${publicPosters.length} posters, ${projects[0].videos?.length || 0} videos, ${(thumbnailBytes / 1024 / 1024).toFixed(1)} MB thumbnails`
+    `Public build complete: ${publicImages.length} images, ${publicPosters.length} posters, ${projects[0].videos?.length || 0} videos, ${(thumbnailBytes / 1024 / 1024).toFixed(1)} MB thumbnails, ${(viewerBytes / 1024 / 1024).toFixed(1)} MB viewer images`
 
 );
 

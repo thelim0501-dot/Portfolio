@@ -8,6 +8,7 @@ const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 const crypto = require("crypto");
+const sharp = require("sharp");
 const dotenv = require("dotenv");
 const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
@@ -22,6 +23,7 @@ const projectFile = path.join(__dirname, "projects.json");
 
 const backupFolder = path.join(__dirname, "backups");
 const tempVideoFolder = path.join(__dirname, "temp-uploads");
+const viewerImageCache = new Map();
 
 const r2Config = {
 
@@ -595,6 +597,74 @@ if (!fs.existsSync(uploadFolder)) {
     fs.mkdirSync(uploadFolder);
 
 }
+
+app.get("/viewer-image/:name", async (req, res) => {
+
+    const fileName = req.params.name;
+
+    if(path.basename(fileName) !== fileName){
+
+        return res.status(400).end();
+
+    }
+
+    const filePath = path.join(uploadFolder, fileName);
+
+    if(!fs.existsSync(filePath)){
+
+        return res.status(404).end();
+
+    }
+
+    try {
+
+        const fileStats = fs.statSync(filePath);
+
+        const signature = `${fileStats.size}:${fileStats.mtimeMs}`;
+
+        const cachedImage = viewerImageCache.get(fileName);
+
+        const viewerImage = cachedImage?.signature === signature
+
+            ? cachedImage.buffer
+
+            : await sharp(filePath)
+
+            .rotate()
+
+            .resize({ width: 2560, withoutEnlargement: true })
+
+            .webp({ quality: 88, smartSubsample: true })
+
+            .toBuffer();
+
+        if(cachedImage?.signature !== signature){
+
+            viewerImageCache.set(fileName, { signature, buffer: viewerImage });
+
+        }
+
+        res.set({
+
+            "Content-Type": "image/webp",
+
+            "Cache-Control": "no-cache"
+
+        });
+
+        res.send(viewerImage);
+
+    }
+
+    catch(error){
+
+        console.error("Viewer image generation failed:", error.message);
+
+        res.status(500).end();
+
+    }
+
+});
 
 // =====================================
 // Multer

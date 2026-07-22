@@ -41,6 +41,8 @@ class PortfolioApp {
         this.pages = [];
         this.projects = [];
         this.thumbnailMap = {};
+        this.viewerMap = {};
+        this.preloadedViewerImages = new Set();
         this.currentPage = 0;
         this.currentImageIndex = 0;
         this.currentVideoIndex = 0;
@@ -242,11 +244,13 @@ class PortfolioApp {
 
         this.viewerImage.addEventListener("load", () => {
 
-            this.viewer.classList.remove("media-error");
+            this.viewer.classList.remove("media-error", "media-loading");
 
         });
 
         this.viewerImage.addEventListener("error", () => {
+
+            this.viewer.classList.remove("media-loading");
 
             this.viewer.classList.add("media-error");
 
@@ -280,7 +284,15 @@ class PortfolioApp {
 
         try {
 
-            const response = await fetch("projects.json", { cache: "no-store" });
+            const [response, thumbnailResponse, viewerResponse] = await Promise.all([
+
+                fetch("projects.json", { cache: "no-store" }),
+
+                fetch("thumbnail-map.json", { cache: "no-store" }),
+
+                fetch("viewer-map.json", { cache: "no-store" })
+
+            ]);
 
             if(!response.ok){
 
@@ -291,26 +303,6 @@ class PortfolioApp {
             const projects = await response.json();
 
             this.projects = Array.isArray(projects) ? projects : [];
-
-        }
-
-        catch(error) {
-
-            console.error(error);
-
-            this.projects = [];
-
-        }
-
-        try {
-
-            const thumbnailResponse = await fetch(
-
-                "thumbnail-map.json",
-
-                { cache: "no-store" }
-
-            );
 
             if(thumbnailResponse.ok){
 
@@ -324,11 +316,27 @@ class PortfolioApp {
 
             }
 
+            if(viewerResponse.ok){
+
+                const viewerMap = await viewerResponse.json();
+
+                this.viewerMap = viewerMap && typeof viewerMap === "object"
+
+                    ? viewerMap
+
+                    : {};
+
+            }
+
         }
 
-        catch(error){
+        catch(error) {
 
+            console.error(error);
+
+            this.projects = [];
             this.thumbnailMap = {};
+            this.viewerMap = {};
 
         }
 
@@ -367,6 +375,82 @@ class PortfolioApp {
     getThumbnailUrl(fileName) {
 
         return this.thumbnailMap[fileName] || `images/${encodeURIComponent(fileName)}`;
+
+    }
+
+    getViewerUrl(fileName) {
+
+        if(this.viewerMap[fileName]){
+
+            return this.viewerMap[fileName];
+
+        }
+
+        if(window.location.port){
+
+            return `/viewer-image/${encodeURIComponent(fileName)}`;
+
+        }
+
+        return `images/${encodeURIComponent(fileName)}`;
+
+    }
+
+    preloadViewerImage(fileName) {
+
+        if(!fileName || this.preloadedViewerImages.has(fileName)){
+
+            return;
+
+        }
+
+        this.preloadedViewerImages.add(fileName);
+
+        const image = new Image();
+
+        image.decoding = "async";
+
+        image.addEventListener("error", () => {
+
+            this.preloadedViewerImages.delete(fileName);
+
+        }, { once: true });
+
+        image.src = this.getViewerUrl(fileName);
+
+    }
+
+    preloadPageImages(page) {
+
+        const fileNames = [...page?.querySelectorAll(".image-box[data-file-name]") || []]
+
+            .map(box => box.dataset.fileName)
+
+            .filter(Boolean);
+
+        if(fileNames.length === 0){
+
+            return;
+
+        }
+
+        const preload = () => fileNames.forEach(fileName => {
+
+            this.preloadViewerImage(fileName);
+
+        });
+
+        if("requestIdleCallback" in window){
+
+            window.requestIdleCallback(preload, { timeout: 500 });
+
+        }
+
+        else {
+
+            window.setTimeout(preload, 150);
+
+        }
 
     }
 
@@ -481,6 +565,8 @@ class PortfolioApp {
                 box.className = "image-box is-loading";
 
                 box.type = "button";
+
+                box.dataset.fileName = fileName;
 
                 box.setAttribute(
 
@@ -1334,6 +1420,8 @@ class PortfolioApp {
 
         const activePage = this.pages[this.currentPage];
 
+        this.preloadPageImages(activePage);
+
         activePage?.querySelectorAll(".image-box, .film-card").forEach((box, index) => {
 
             box.classList.remove("show");
@@ -1584,7 +1672,7 @@ class PortfolioApp {
 
         if(video.poster){
 
-            this.videoViewerPlayer.poster = `images/${encodeURIComponent(video.poster)}`;
+            this.videoViewerPlayer.poster = this.getViewerUrl(video.poster);
 
         }
 
@@ -1654,9 +1742,15 @@ class PortfolioApp {
 
         this.viewer.classList.remove("media-error");
 
+        this.viewer.classList.add("media-loading");
+
         this.viewerImage.alt = this.getImageAlt(images[index]);
 
-        this.viewerImage.src = `images/${encodeURIComponent(images[index])}`;
+        this.viewerImage.src = this.getViewerUrl(images[index]);
+
+        this.preloadViewerImage(images[(index + 1) % images.length]);
+
+        this.preloadViewerImage(images[(index - 1 + images.length) % images.length]);
 
         this.viewerCount.textContent = `${index + 1} / ${images.length}`;
 
@@ -1712,9 +1806,23 @@ class PortfolioApp {
 
         this.viewer.classList.remove("media-error");
 
+        this.viewer.classList.add("media-loading");
+
         this.viewerImage.alt = this.getImageAlt(images[this.currentImageIndex]);
 
-        this.viewerImage.src = `images/${encodeURIComponent(images[this.currentImageIndex])}`;
+        this.viewerImage.src = this.getViewerUrl(images[this.currentImageIndex]);
+
+        this.preloadViewerImage(
+
+            images[(this.currentImageIndex + 1) % images.length]
+
+        );
+
+        this.preloadViewerImage(
+
+            images[(this.currentImageIndex - 1 + images.length) % images.length]
+
+        );
 
         this.viewerCount.textContent = `${this.currentImageIndex + 1} / ${images.length}`;
 
@@ -1732,7 +1840,7 @@ class PortfolioApp {
 
         this.viewerImage.alt = "";
 
-        this.viewer.classList.remove("media-error");
+        this.viewer.classList.remove("media-error", "media-loading");
 
         this.setBackgroundInert(false);
 
