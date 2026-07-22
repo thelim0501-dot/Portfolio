@@ -23,6 +23,17 @@
             "Shop 001 - 0331.png"
         ],
         "imageAlts": {},
-        "videos": []
+        "videos": [
+            {
+                "id": "00047c90-d90a-4b24-a222-256726768c6d",
+                "key": "portfolio/videos/71b08363-da14-4121-893d-6e66f315d76c.mp4",
+                "url": "https://pub-32487382c08c49e282c221eaf6a1baeb.r2.dev/portfolio/videos/71b08363-da14-4121-893d-6e66f315d76c.mp4",
+                "title": "4. Library 1",
+                "file": "4. Library 1.mp4",
+                "size": 116842057,
+                "type": "video/mp4",
+                "uploadedAt": "2026-07-22T07:32:45.448Z"
+            }
+        ]
     }
 ]
