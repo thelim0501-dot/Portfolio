@@ -659,13 +659,25 @@ body{
     KEYBOARD & MOTION ACCESSIBILITY
 ====================================================== */
 
-.image-box:focus-visible,
-.film-card:focus-visible,
-.media-tab:focus-visible,
-#navigation button:focus-visible,
-#viewer button:focus-visible,
-#videoViewer button:focus-visible,
-#videoViewerPlayer:focus-visible{
+.image-box:focus,
+.film-card:focus,
+.media-tab:focus,
+#navigation button:focus,
+#viewer button:focus,
+#videoViewer button:focus,
+#videoViewerPlayer:focus{
+
+    outline:none;
+
+}
+
+html.keyboard-navigation .image-box:focus-visible,
+html.keyboard-navigation .film-card:focus-visible,
+html.keyboard-navigation .media-tab:focus-visible,
+html.keyboard-navigation #navigation button:focus-visible,
+html.keyboard-navigation #viewer button:focus-visible,
+html.keyboard-navigation #videoViewer button:focus-visible,
+html.keyboard-navigation #videoViewerPlayer:focus-visible{
 
     outline:2px solid #fff;
 
@@ -1600,7 +1612,7 @@ body{
     }
 
     .media-tab:hover .media-tab-preview,
-    .media-tab:focus-visible .media-tab-preview{
+    html.keyboard-navigation .media-tab:focus-visible .media-tab-preview{
 
         opacity:.9;
 

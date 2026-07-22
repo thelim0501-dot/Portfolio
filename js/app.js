@@ -118,7 +118,23 @@ class PortfolioApp {
 
         this.nextBtn.addEventListener("click", () => this.nextPage());
 
-        document.addEventListener("keydown", event => this.handleKeyboard(event));
+        document.addEventListener("keydown", event => {
+
+            if(event.key === "Tab"){
+
+                document.documentElement.classList.add("keyboard-navigation");
+
+            }
+
+            this.handleKeyboard(event);
+
+        });
+
+        document.addEventListener("pointerdown", () => {
+
+            document.documentElement.classList.remove("keyboard-navigation");
+
+        }, true);
 
         this.visualizationTab.addEventListener("click", () => this.selectMedia("images"));
 
