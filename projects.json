@@ -21,6 +21,18 @@
             "novo nordisk office 폰룸 - 0114.png",
             "동성케미칼 5F Conf 001 - 0618.png",
             "Shop 001 - 0331.png"
+        ],
+        "videos": [
+            {
+                "id": "2cdb46fa-b617-4e17-99c5-d1fc599f97cd",
+                "key": "portfolio/videos/46abc91a-2c9c-4fc5-9e01-fb007f9ba189.mp4",
+                "url": "https://pub-32487382c08c49e282c221eaf6a1baeb.r2.dev/portfolio/videos/46abc91a-2c9c-4fc5-9e01-fb007f9ba189.mp4",
+                "title": "6. Library 002",
+                "file": "6. Library 002.mp4",
+                "size": 86258987,
+                "type": "video/mp4",
+                "uploadedAt": "2026-07-22T02:15:40.867Z"
+            }
         ]
     }
 ]

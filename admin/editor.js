@@ -28,8 +28,22 @@ const backupList = document.getElementById("backupList");
 const restoreSelectedBackup = document.getElementById("restoreSelectedBackup");
 const publishBtn = document.getElementById("publishBtn");
 const publishStatus = document.getElementById("publishStatus");
+const imageModeBtn = document.getElementById("imageModeBtn");
+const videoModeBtn = document.getElementById("videoModeBtn");
+const videoUploadBtn = document.getElementById("videoUploadBtn");
+const videoFileInput = document.getElementById("videoFileInput");
+const videoStatus = document.getElementById("videoStatus");
+const videoCanvas = document.getElementById("videoCanvas");
+const propertyPanel = document.getElementById("propertyPanel");
+const editorLayout = document.querySelector(".editor-layout");
 
 let images = [];
+
+let videos = [];
+
+let videoSortable = null;
+
+let editorMode = "images";
 
 let selectedIndex = -1;
 
@@ -111,6 +125,14 @@ const AUTO_SAVE_DELAY = 500;
 
 window.addEventListener("DOMContentLoaded", async () => {
 
+    imageModeBtn.addEventListener("click", () => switchEditorMode("images"));
+
+    videoModeBtn.addEventListener("click", () => switchEditorMode("videos"));
+
+    videoUploadBtn.addEventListener("click", () => videoFileInput.click());
+
+    videoFileInput.addEventListener("change", uploadVideos);
+
     publishBtn.addEventListener("click", publishProjects);
 
     restoreBackupBtn.addEventListener(
@@ -191,6 +213,8 @@ fileInput.addEventListener("change", uploadImages);
 
     await loadPublishStatus();
 
+    await loadR2Status();
+
     document.addEventListener("keydown", handleKeyboard);
 
 });
@@ -221,9 +245,17 @@ async function loadProjects() {
 
         images = projects[0].images.filter(image => image != null);
 
+        videos = Array.isArray(projects[0].videos)
+
+            ? projects[0].videos.filter(video => video && video.url)
+
+            : [];
+
     }
 
     renderPages();
+
+    renderVideos();
 
     refreshUploadPageList();
 
@@ -1600,11 +1632,367 @@ async function saveProjects(){
 
         body:JSON.stringify({
 
-        images: images.filter(image => image != null)
+        images: images.filter(image => image != null),
+
+        videos
 
         })
 
     });
+
+}
+
+// ======================================================
+// Video Library
+// ======================================================
+
+function setVideoStatus(message, state = ""){
+
+    videoStatus.textContent = message;
+
+    videoStatus.dataset.state = state;
+
+}
+
+function switchEditorMode(mode){
+
+    editorMode = mode;
+
+    const videoMode = mode === "videos";
+
+    imageModeBtn.classList.toggle("active", !videoMode);
+
+    imageModeBtn.setAttribute("aria-selected", String(!videoMode));
+
+    videoModeBtn.classList.toggle("active", videoMode);
+
+    videoModeBtn.setAttribute("aria-selected", String(videoMode));
+
+    document.querySelectorAll(".image-tool").forEach(element => {
+
+        element.hidden = videoMode;
+
+    });
+
+    document.querySelectorAll(".video-tool").forEach(element => {
+
+        element.hidden = !videoMode;
+
+    });
+
+    pageCanvas.hidden = videoMode;
+
+    videoCanvas.hidden = !videoMode;
+
+    propertyPanel.hidden = videoMode;
+
+    editorLayout.classList.toggle("video-mode", videoMode);
+
+    if(videoMode){
+
+        renderVideos();
+
+    }
+
+}
+
+async function loadR2Status(){
+
+    try {
+
+        const response = await fetch("/r2/status");
+
+        const result = await response.json();
+
+        videoUploadBtn.disabled = !result.ready;
+
+        setVideoStatus(result.message, result.ready ? "ready" : "error");
+
+    }
+
+    catch(error){
+
+        videoUploadBtn.disabled = true;
+
+        setVideoStatus("R2 연결 상태를 확인할 수 없습니다.", "error");
+
+    }
+
+}
+
+function formatFileSize(bytes){
+
+    if(!Number.isFinite(bytes) || bytes <= 0){
+
+        return "크기 정보 없음";
+
+    }
+
+    const units = ["B", "KB", "MB", "GB"];
+
+    const unitIndex = Math.min(
+
+        Math.floor(Math.log(bytes) / Math.log(1024)),
+
+        units.length - 1
+
+    );
+
+    const value = bytes / (1024 ** unitIndex);
+
+    return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+
+}
+
+function renderVideos(){
+
+    if(videoSortable){
+
+        videoSortable.destroy();
+
+        videoSortable = null;
+
+    }
+
+    videoCanvas.innerHTML = "";
+
+    if(videos.length === 0){
+
+        const empty = document.createElement("div");
+
+        empty.className = "video-empty";
+
+        const title = document.createElement("strong");
+
+        title.textContent = "아직 등록된 영상이 없습니다.";
+
+        const description = document.createElement("span");
+
+        description.textContent = "R2 연결 후 + Add Videos로 MP4 또는 WebM을 업로드하세요.";
+
+        empty.append(title, description);
+
+        videoCanvas.appendChild(empty);
+
+        return;
+
+    }
+
+    videos.forEach((video, index) => {
+
+        const card = document.createElement("article");
+
+        card.className = "video-card";
+
+        card.dataset.id = video.id;
+
+        const preview = document.createElement("div");
+
+        preview.className = "video-card-preview";
+
+        const player = document.createElement("video");
+
+        player.src = video.url;
+
+        player.controls = true;
+
+        player.preload = "metadata";
+
+        player.playsInline = true;
+
+        preview.appendChild(player);
+
+        const body = document.createElement("div");
+
+        body.className = "video-card-body";
+
+        const indexLabel = document.createElement("div");
+
+        indexLabel.className = "video-card-index";
+
+        indexLabel.textContent = `FILM ${String(index + 1).padStart(2, "0")} · DRAG TO REORDER`;
+
+        const titleInput = document.createElement("input");
+
+        titleInput.className = "video-title-input";
+
+        titleInput.type = "text";
+
+        titleInput.value = video.title || "";
+
+        titleInput.placeholder = "영상 제목";
+
+        titleInput.addEventListener("input", () => {
+
+            video.title = titleInput.value;
+
+            autoSave();
+
+        });
+
+        const meta = document.createElement("div");
+
+        meta.className = "video-card-meta";
+
+        meta.textContent = `${video.file || "video"} · ${formatFileSize(video.size)}`;
+
+        const deleteButton = document.createElement("button");
+
+        deleteButton.className = "video-delete-button";
+
+        deleteButton.type = "button";
+
+        deleteButton.textContent = "Delete from R2";
+
+        deleteButton.addEventListener("click", () => deleteVideo(video));
+
+        body.append(indexLabel, titleInput, meta, deleteButton);
+
+        card.append(preview, body);
+
+        videoCanvas.appendChild(card);
+
+    });
+
+    videoSortable = new Sortable(videoCanvas, {
+
+        animation: 180,
+
+        draggable: ".video-card",
+
+        handle: ".video-card-index",
+
+        onEnd(evt){
+
+            if(evt.oldIndex === evt.newIndex){
+
+                return;
+
+            }
+
+            const [movedVideo] = videos.splice(evt.oldIndex, 1);
+
+            videos.splice(evt.newIndex, 0, movedVideo);
+
+            autoSave();
+
+            renderVideos();
+
+        }
+
+    });
+
+}
+
+async function uploadVideos(){
+
+    const files = [...videoFileInput.files];
+
+    if(files.length === 0){
+
+        return;
+
+    }
+
+    videoUploadBtn.disabled = true;
+
+    try {
+
+        for(let index = 0; index < files.length; index++){
+
+            const file = files[index];
+
+            setVideoStatus(
+
+                `${index + 1}/${files.length} 업로드 중 · ${file.name}`
+
+            );
+
+            const formData = new FormData();
+
+            formData.append("video", file);
+
+            const response = await fetch("/videos/upload", {
+
+                method: "POST",
+
+                body: formData
+
+            });
+
+            const result = await response.json();
+
+            if(!response.ok || !result.success){
+
+                throw new Error(result.message || "영상 업로드에 실패했습니다.");
+
+            }
+
+            videos.push(result.video);
+
+            renderVideos();
+
+        }
+
+        setVideoStatus(`${files.length}개 영상 업로드 완료`, "ready");
+
+    }
+
+    catch(error){
+
+        setVideoStatus(error.message || "영상 업로드에 실패했습니다.", "error");
+
+    }
+
+    finally {
+
+        videoFileInput.value = "";
+
+        videoUploadBtn.disabled = false;
+
+    }
+
+}
+
+async function deleteVideo(video){
+
+    if(!confirm(`R2에서도 '${video.title || video.file}' 영상을 삭제할까요?`)){
+
+        return;
+
+    }
+
+    setVideoStatus("R2에서 영상 삭제 중...");
+
+    try {
+
+        const response = await fetch(`/video/${encodeURIComponent(video.id)}`, {
+
+            method: "DELETE"
+
+        });
+
+        const result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "영상 삭제에 실패했습니다.");
+
+        }
+
+        videos = videos.filter(item => item.id !== video.id);
+
+        renderVideos();
+
+        setVideoStatus("R2에서 영상이 삭제되었습니다.", "ready");
+
+    }
+
+    catch(error){
+
+        setVideoStatus(error.message || "영상 삭제에 실패했습니다.", "error");
+
+    }
 
 }
 

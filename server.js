@@ -7,8 +7,14 @@ const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
+const crypto = require("crypto");
+const dotenv = require("dotenv");
+const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { Upload } = require("@aws-sdk/lib-storage");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
+
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const execFileAsync = promisify(execFile);
 
@@ -16,6 +22,123 @@ const projectFile = path.join(__dirname, "projects.json");
 const backupFile = path.join(__dirname, "projects_backup.json");
 
 const backupFolder = path.join(__dirname, "backups");
+const tempVideoFolder = path.join(__dirname, "temp-uploads");
+
+const r2Config = {
+
+    accountId: process.env.R2_ACCOUNT_ID,
+
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+
+    bucket: process.env.R2_BUCKET_NAME,
+
+    publicUrl: (process.env.R2_PUBLIC_URL || "").replace(/\/$/, "")
+
+};
+
+function getMissingR2Settings(){
+
+    return Object.entries(r2Config)
+
+        .filter(([, value]) => !value)
+
+        .map(([key]) => key);
+
+}
+
+const r2Ready = getMissingR2Settings().length === 0;
+
+const r2Client = r2Ready
+
+    ? new S3Client({
+
+        region: "auto",
+
+        endpoint: `https://${r2Config.accountId}.r2.cloudflarestorage.com`,
+
+        credentials: {
+
+            accessKeyId: r2Config.accessKeyId,
+
+            secretAccessKey: r2Config.secretAccessKey
+
+        }
+
+    })
+
+    : null;
+
+function readProjects(){
+
+    if(!fs.existsSync(projectFile)){
+
+        return [];
+
+    }
+
+    return JSON.parse(fs.readFileSync(projectFile, "utf8"));
+
+}
+
+function ensureProject(projects){
+
+    if(projects.length === 0){
+
+        projects.push({ title: "Portfolio", images: [], videos: [] });
+
+    }
+
+    projects[0].images = Array.isArray(projects[0].images)
+
+        ? projects[0].images
+
+        : [];
+
+    projects[0].videos = Array.isArray(projects[0].videos)
+
+        ? projects[0].videos
+
+        : [];
+
+    return projects[0];
+
+}
+
+function writeProjects(projects){
+
+    fs.writeFileSync(
+
+        projectFile,
+
+        JSON.stringify(projects, null, 4),
+
+        "utf8"
+
+    );
+
+}
+
+function decodeUploadName(name){
+
+    return Buffer.from(name, "latin1").toString("utf8");
+
+}
+
+function getR2PublicUrl(key){
+
+    const encodedKey = key
+
+        .split("/")
+
+        .map(segment => encodeURIComponent(segment))
+
+        .join("/");
+
+    return `${r2Config.publicUrl}/${encodedKey}`;
+
+}
 
 async function runGit(args) {
 
@@ -119,6 +242,12 @@ if(!fs.existsSync(backupFolder)){
 
 }
 
+if(!fs.existsSync(tempVideoFolder)){
+
+    fs.mkdirSync(tempVideoFolder);
+
+}
+
 const app = express();
 
 app.use(cors());
@@ -168,6 +297,46 @@ const storage = multer.diskStorage({
 const upload = multer({
 
     storage
+
+});
+
+const videoUpload = multer({
+
+    storage: multer.diskStorage({
+
+        destination(req, file, cb){
+
+            cb(null, tempVideoFolder);
+
+        },
+
+        filename(req, file, cb){
+
+            cb(null, `${Date.now()}-${crypto.randomUUID()}.upload`);
+
+        }
+
+    }),
+
+    limits: {
+
+        fileSize: 2 * 1024 * 1024 * 1024
+
+    },
+
+    fileFilter(req, file, cb){
+
+        const originalName = decodeUploadName(file.originalname);
+
+        const supported =
+
+            ["video/mp4", "video/webm"].includes(file.mimetype) ||
+
+            /\.(mp4|webm)$/i.test(originalName);
+
+        cb(supported ? null : new Error("MP4 또는 WebM 영상만 업로드할 수 있습니다."), supported);
+
+    }
 
 });
 
@@ -227,6 +396,220 @@ app.post("/upload", upload.array("images"), (req, res) => {
 
 });
 
+// ======================================================
+// R2 Videos
+// ======================================================
+
+app.get("/r2/status", (req, res) => {
+
+    res.json({
+
+        ready: r2Ready,
+
+        message: r2Ready
+
+            ? "R2 연결 준비가 완료되었습니다."
+
+            : ".env에 R2 연결 정보를 입력해 주세요.",
+
+        missing: r2Ready ? [] : getMissingR2Settings()
+
+    });
+
+});
+
+app.post("/videos/upload", (req, res) => {
+
+    if(!r2Ready){
+
+        return res.status(503).json({
+
+            success: false,
+
+            message: ".env에 R2 연결 정보를 먼저 입력해 주세요."
+
+        });
+
+    }
+
+    videoUpload.single("video")(req, res, async error => {
+
+        if(error){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: error.message
+
+            });
+
+        }
+
+        if(!req.file){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "업로드할 영상이 없습니다."
+
+            });
+
+        }
+
+        const originalName = decodeUploadName(req.file.originalname);
+
+        const extension = path.extname(originalName).toLowerCase();
+
+        const key = `portfolio/videos/${crypto.randomUUID()}${extension}`;
+
+        try {
+
+            const uploader = new Upload({
+
+                client: r2Client,
+
+                params: {
+
+                    Bucket: r2Config.bucket,
+
+                    Key: key,
+
+                    Body: fs.createReadStream(req.file.path),
+
+                    ContentType: req.file.mimetype,
+
+                    ContentLength: req.file.size,
+
+                    CacheControl: "public, max-age=31536000, immutable"
+
+                },
+
+                leavePartsOnError: false
+
+            });
+
+            await uploader.done();
+
+            const video = {
+
+                id: crypto.randomUUID(),
+
+                key,
+
+                url: getR2PublicUrl(key),
+
+                title: path.basename(originalName, extension),
+
+                file: originalName,
+
+                size: req.file.size,
+
+                type: req.file.mimetype,
+
+                uploadedAt: new Date().toISOString()
+
+            };
+
+            const projects = readProjects();
+
+            const project = ensureProject(projects);
+
+            project.videos.push(video);
+
+            writeProjects(projects);
+
+            res.json({ success: true, video });
+
+        }
+
+        catch(uploadError){
+
+            console.error("R2 upload failed:", uploadError.message);
+
+            res.status(500).json({
+
+                success: false,
+
+                message: "R2 영상 업로드에 실패했습니다. 연결 정보를 확인해 주세요."
+
+            });
+
+        }
+
+        finally {
+
+            fs.rm(req.file.path, { force: true }, () => {});
+
+        }
+
+    });
+
+});
+
+app.delete("/video/:id", async (req, res) => {
+
+    if(!r2Ready){
+
+        return res.status(503).json({
+
+            success: false,
+
+            message: ".env에 R2 연결 정보를 먼저 입력해 주세요."
+
+        });
+
+    }
+
+    const projects = readProjects();
+
+    const project = ensureProject(projects);
+
+    const videoIndex = project.videos.findIndex(video => video.id === req.params.id);
+
+    if(videoIndex < 0){
+
+        return res.status(404).json({ success: false, message: "영상을 찾을 수 없습니다." });
+
+    }
+
+    const video = project.videos[videoIndex];
+
+    try {
+
+        await r2Client.send(new DeleteObjectCommand({
+
+            Bucket: r2Config.bucket,
+
+            Key: video.key
+
+        }));
+
+        project.videos.splice(videoIndex, 1);
+
+        writeProjects(projects);
+
+        res.json({ success: true, id: video.id });
+
+    }
+
+    catch(deleteError){
+
+        console.error("R2 delete failed:", deleteError.message);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "R2 영상 삭제에 실패했습니다."
+
+        });
+
+    }
+
+});
+
 // =====================================
 // Image List
 // =====================================
@@ -277,17 +660,31 @@ app.get("/projects", (req, res) => {
 
 app.post("/save", (req, res) => {
 
-    const images = req.body.images;
+    const projects = readProjects();
 
-    const json = [
+    const project = ensureProject(projects);
 
-        {
+    if(Array.isArray(req.body.images)){
 
-            images
+        project.images = req.body.images.filter(image => typeof image === "string");
 
-        }
+    }
 
-    ];
+    if(Array.isArray(req.body.videos)){
+
+        project.videos = req.body.videos.filter(video => {
+
+            return video &&
+
+                typeof video.id === "string" &&
+
+                typeof video.key === "string" &&
+
+                typeof video.url === "string";
+
+        });
+
+    }
 
     const currentTime = Date.now();
 
@@ -355,7 +752,7 @@ app.post("/save", (req, res) => {
 
         projectFile,
 
-        JSON.stringify(json, null, 4),
+        JSON.stringify(projects, null, 4),
 
         "utf8"
 
@@ -803,7 +1200,7 @@ app.post("/restore-backup", (req, res) => {
 // Start
 // =====================================
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.listen(PORT, () => {
 

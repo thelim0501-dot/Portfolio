@@ -1,33 +1,35 @@
 // ============================================
 // Portfolio Builder
-// Version 2.0
+// Version 3.0
 // ============================================
 
 class PortfolioApp {
 
     constructor() {
 
-        this.pages = [];
         this.portfolioContainer = document.getElementById("portfolioPages");
 
         this.prevBtn = document.getElementById("prevBtn");
         this.nextBtn = document.getElementById("nextBtn");
         this.pageNumber = document.getElementById("pageNumber");
 
-        this.gallery = document.getElementById("gallery");
-
         this.viewer = document.getElementById("viewer");
         this.viewerImage = document.getElementById("viewerImage");
         this.viewerPrev = document.getElementById("viewerPrev");
         this.viewerNext = document.getElementById("viewerNext");
         this.viewerCount = document.getElementById("viewerCount");
-
-        this.currentImageIndex = 0;
         this.closeViewer = document.getElementById("closeViewer");
 
-        this.currentPage = 0;
+        this.visualizationTab = document.getElementById("visualizationTab");
+        this.filmTab = document.getElementById("filmTab");
+        this.visualizationCount = document.getElementById("visualizationCount");
+        this.filmCount = document.getElementById("filmCount");
 
+        this.pages = [];
         this.projects = [];
+        this.currentPage = 0;
+        this.currentImageIndex = 0;
+        this.activeMediaType = "images";
 
         this.initialize();
 
@@ -35,40 +37,36 @@ class PortfolioApp {
 
     async initialize() {
 
-    this.bindEvents();
+        this.bindEvents();
 
-    await this.loadProjects();
+        await this.loadProjects();
 
-// =========================
-// Loader Animation
-// =========================
+        const loaderTitle = document.getElementById("loaderTitle");
+        const loaderSelected = document.getElementById("loaderSelected");
+        const loader = document.getElementById("loader");
+        const app = document.getElementById("app");
 
-// 0.3초 동안 검정 화면 유지
-setTimeout(() => {
+        setTimeout(() => {
 
-    document.getElementById("loaderTitle").style.animationPlayState = "running";
+            loaderTitle.style.animationPlayState = "running";
 
-}, 300);
+        }, 300);
 
+        setTimeout(() => {
 
-// 형광등이 켜진 후 Selected Works 표시
-setTimeout(() => {
+            loaderSelected.classList.add("show");
 
-    document.getElementById("loaderSelected").classList.add("show");
+        }, 3100);
 
-}, 3100);
+        setTimeout(() => {
 
+            loader.classList.add("hide");
 
-// Loader 종료
-setTimeout(() => {
+            app.classList.add("show");
 
-    document.getElementById("loader").classList.add("hide");
+        }, 4300);
 
-    document.getElementById("app").classList.add("show");
-
-}, 4300);
-        
-}
+    }
 
     bindEvents() {
 
@@ -76,32 +74,40 @@ setTimeout(() => {
 
         this.nextBtn.addEventListener("click", () => this.nextPage());
 
-        document.addEventListener("keydown", (e) => this.handleKeyboard(e));
+        document.addEventListener("keydown", event => this.handleKeyboard(event));
+
+        this.visualizationTab.addEventListener("click", () => this.selectMedia("images"));
+
+        this.filmTab.addEventListener("click", () => this.selectMedia("videos"));
 
         this.closeViewer.addEventListener("click", () => this.closeImage());
 
-        this.viewer.addEventListener("click", () => {
+        this.viewer.addEventListener("click", event => {
 
-            this.closeImage();
+            if(event.target === this.viewer){
 
-      });
+                this.closeImage();
 
-        this.viewerPrev.addEventListener("click", (e) => {
+            }
 
-            e.stopPropagation();
+        });
+
+        this.viewerPrev.addEventListener("click", event => {
+
+            event.stopPropagation();
 
             this.previousImage();
 
-      });
+        });
 
-        this.viewerNext.addEventListener("click", (e) => {
+        this.viewerNext.addEventListener("click", event => {
 
-            e.stopPropagation();
+            event.stopPropagation();
 
             this.nextImage();
 
-});
-        
+        });
+
     }
 
     async loadProjects() {
@@ -110,116 +116,295 @@ setTimeout(() => {
 
             const response = await fetch("projects.json");
 
-            this.projects = await response.json();
+            if(!response.ok){
 
-            console.log("Projects Loaded", this.projects);
+                throw new Error("projects.json을 불러오지 못했습니다.");
 
-            this.createPortfolioPages();
+            }
 
-this.pages = document.querySelectorAll(".page");
+            const projects = await response.json();
 
-this.updatePage();
+            this.projects = Array.isArray(projects) ? projects : [];
 
         }
 
-        catch (error) {
+        catch(error) {
 
             console.error(error);
+
+            this.projects = [];
+
+        }
+
+        this.createPortfolioPages();
+
+        this.updatePage();
+
+    }
+
+    getProject() {
+
+        const project = this.projects[0] || {};
+
+        return {
+
+            ...project,
+
+            images: Array.isArray(project.images) ? project.images.filter(Boolean) : [],
+
+            videos: Array.isArray(project.videos)
+
+                ? project.videos.filter(video => video && video.url)
+
+                : []
+
+        };
+
+    }
+
+    updateMediaTabs() {
+
+        const project = this.getProject();
+
+        const imageMode = this.activeMediaType === "images";
+
+        this.visualizationTab.classList.toggle("active", imageMode);
+
+        this.visualizationTab.setAttribute("aria-selected", String(imageMode));
+
+        this.filmTab.classList.toggle("active", !imageMode);
+
+        this.filmTab.setAttribute("aria-selected", String(!imageMode));
+
+        this.visualizationCount.textContent = `${project.images.length} IMAGES`;
+
+        this.filmCount.textContent = `${project.videos.length} FILMS`;
+
+    }
+
+    selectMedia(type) {
+
+        this.activeMediaType = type;
+
+        this.createPortfolioPages();
+
+        this.pages = [...document.querySelectorAll(".page")];
+
+        const firstContentPage = this.pages.findIndex(page => {
+
+            return this.portfolioContainer.contains(page);
+
+        });
+
+        this.currentPage = firstContentPage >= 0 ? firstContentPage : 0;
+
+        this.updatePage();
+
+    }
+
+    createPortfolioPages() {
+
+        this.portfolioContainer.innerHTML = "";
+
+        this.updateMediaTabs();
+
+        if(this.activeMediaType === "videos"){
+
+            this.createVideoPages();
+
+        }
+
+        else {
+
+            this.createImagePages();
+
+        }
+
+        this.pages = [...document.querySelectorAll(".page")];
+
+    }
+
+    createImagePages() {
+
+        const images = this.getProject().images;
+
+        if(images.length === 0){
+
+            this.createEmptyPage("VISUALIZATION", "등록된 이미지가 없습니다.");
+
+            return;
+
+        }
+
+        const totalPages = Math.ceil(images.length / 4);
+
+        for(let pageIndex = 0; pageIndex < totalPages; pageIndex++){
+
+            const section = document.createElement("section");
+
+            section.className = "page portfolio-page";
+
+            section.dataset.media = "images";
+
+            const gallery = document.createElement("div");
+
+            gallery.className = "gallery";
+
+            const pageImages = images.slice(pageIndex * 4, pageIndex * 4 + 4);
+
+            gallery.classList.add(`count-${pageImages.length}`);
+
+            pageImages.forEach((fileName, itemIndex) => {
+
+                const imageIndex = pageIndex * 4 + itemIndex;
+
+                const box = document.createElement("div");
+
+                box.className = "image-box";
+
+                const image = document.createElement("img");
+
+                image.src = `images/${fileName}`;
+
+                image.alt = fileName.replace(/\.[^/.]+$/, "");
+
+                image.loading = "lazy";
+
+                image.addEventListener("click", () => this.openImage(imageIndex));
+
+                const overlay = document.createElement("div");
+
+                overlay.className = "image-overlay";
+
+                const viewLabel = document.createElement("span");
+
+                viewLabel.textContent = "VIEW";
+
+                const arrow = document.createElement("span");
+
+                arrow.className = "arrow";
+
+                arrow.textContent = "↗";
+
+                overlay.append(viewLabel, arrow);
+
+                box.append(image, overlay);
+
+                gallery.appendChild(box);
+
+            });
+
+            section.appendChild(gallery);
+
+            this.portfolioContainer.appendChild(section);
 
         }
 
     }
 
-createPortfolioPages(){
+    createVideoPages() {
 
-    this.portfolioContainer.innerHTML = "";
+        const videos = this.getProject().videos;
 
-    const cover =
-        document.querySelector(".cover-page");
+        if(videos.length === 0){
 
-    const intro =
-        document.querySelector(".intro-page");
+            this.createEmptyPage("FILM", "등록된 영상이 없습니다.");
 
-    this.portfolioContainer.before(cover);
-    this.portfolioContainer.before(intro);
+            return;
 
-    const images = this.projects[0].images;
+        }
 
-    const totalPages = Math.ceil(images.length / 4);
+        videos.forEach((video, index) => {
 
-    for(let page=0; page<totalPages; page++){
+            const section = document.createElement("section");
+
+            section.className = "page portfolio-page video-page";
+
+            section.dataset.media = "videos";
+
+            const content = document.createElement("div");
+
+            content.className = "video-page-content";
+
+            const header = document.createElement("div");
+
+            header.className = "video-page-header";
+
+            const pageIndex = document.createElement("span");
+
+            pageIndex.className = "video-page-index";
+
+            pageIndex.textContent = `FILM ${String(index + 1).padStart(2, "0")}`;
+
+            const title = document.createElement("h2");
+
+            title.className = "video-page-title";
+
+            title.textContent = video.title || video.file || `Film ${index + 1}`;
+
+            header.append(pageIndex, title);
+
+            const stage = document.createElement("div");
+
+            stage.className = "video-stage";
+
+            const player = document.createElement("video");
+
+            player.className = "portfolio-video";
+
+            player.src = video.url;
+
+            player.controls = true;
+
+            player.preload = "metadata";
+
+            player.playsInline = true;
+
+            stage.appendChild(player);
+
+            content.append(header, stage);
+
+            section.appendChild(content);
+
+            this.portfolioContainer.appendChild(section);
+
+        });
+
+    }
+
+    createEmptyPage(category, message) {
 
         const section = document.createElement("section");
 
         section.className = "page portfolio-page";
 
-        section.dataset.page = page + 2;
+        const empty = document.createElement("div");
 
-        const gallery = document.createElement("div");
+        empty.className = "media-empty";
 
-        gallery.className = "gallery";
+        const title = document.createElement("strong");
 
-        const pageImages =
-    images.slice(page * 4, page * 4 + 4);
+        title.textContent = category;
 
-gallery.classList.add(`count-${pageImages.length}`);
+        const description = document.createElement("span");
 
-for(let i=0;i<pageImages.length;i++){
+        description.textContent = message;
 
-    const imageIndex = page * 4 + i;
+        empty.append(title, description);
 
-            if(imageIndex >= images.length) break;
-
-            const box = document.createElement("div");
-
-            box.className = "image-box";
-
-            if(pageImages.length === 1){
-
-    box.style.width = "48%";
-
-}
-
-            box.style.aspectRatio = "16 / 9";
-
-            const img = document.createElement("img");
-
-            img.src = `images/${images[imageIndex]}`;
-
-            img.loading = "lazy";
-
-            img.onclick = ()=>this.openImage(imageIndex);
-
-            box.appendChild(img);
-
-            const overlay = document.createElement("div");
-
-            overlay.className = "image-overlay";
-
-            overlay.innerHTML = `
-                <span>VIEW</span>
-                <span class="arrow">↗</span>
-            `;
-
-            box.appendChild(overlay);
-
-            gallery.appendChild(box);
-
-        }
-
-        section.appendChild(gallery);
+        section.appendChild(empty);
 
         this.portfolioContainer.appendChild(section);
 
-        this.pages = document.querySelectorAll(".page");
-
     }
-
-}
 
     nextPage() {
 
-        if (this.currentPage >= this.pages.length - 1) return;
+        if(this.currentPage >= this.pages.length - 1){
+
+            return;
+
+        }
 
         this.currentPage++;
 
@@ -229,7 +414,11 @@ for(let i=0;i<pageImages.length;i++){
 
     previousPage() {
 
-        if (this.currentPage <= 0) return;
+        if(this.currentPage <= 0){
+
+            return;
+
+        }
 
         this.currentPage--;
 
@@ -237,91 +426,91 @@ for(let i=0;i<pageImages.length;i++){
 
     }
 
-   updatePage() {
+    updatePage() {
 
-    this.pages = document.querySelectorAll(".page");
+        this.pages = [...document.querySelectorAll(".page")];
 
-    this.pages.forEach((page,index)=>{
+        this.currentPage = Math.max(0, Math.min(this.currentPage, this.pages.length - 1));
 
-        page.classList.toggle(
-            "active",
-            index === this.currentPage
-        );
+        this.pages.forEach((page, index) => {
 
-    });
+            const active = index === this.currentPage;
 
-    this.pageNumber.textContent =
-        `${String(this.currentPage+1).padStart(2,"0")} / ${String(this.pages.length).padStart(2,"0")}`;
+            page.classList.toggle("active", active);
 
-    this.prevBtn.disabled =
-        this.currentPage === 0;
+            if(!active){
 
-    this.nextBtn.disabled =
-        this.currentPage === this.pages.length-1;
+                page.querySelectorAll("video").forEach(video => video.pause());
 
-    const activePage =
-        this.pages[this.currentPage];
+            }
 
-    if(activePage){
+        });
 
-        activePage
-            .querySelectorAll(".image-box")
-            .forEach((box,index)=>{
+        this.pageNumber.textContent =
 
-                box.classList.remove("show");
+            `${String(this.currentPage + 1).padStart(2, "0")} / ${String(this.pages.length).padStart(2, "0")}`;
 
-                setTimeout(()=>{
+        this.prevBtn.disabled = this.currentPage === 0;
 
-                    box.classList.add("show");
+        this.nextBtn.disabled = this.currentPage === this.pages.length - 1;
 
-                },index*120);
+        const activePage = this.pages[this.currentPage];
 
-            });
+        activePage?.querySelectorAll(".image-box").forEach((box, index) => {
+
+            box.classList.remove("show");
+
+            setTimeout(() => box.classList.add("show"), index * 120);
+
+        });
 
     }
 
-}
-    handleKeyboard(e) {
+    handleKeyboard(event) {
 
-        if (this.viewer.classList.contains("show")) {
+        if(this.viewer.classList.contains("show")){
 
-    if (e.key === "Escape") {
+            if(event.key === "Escape"){
 
-        this.closeImage();
+                this.closeImage();
 
-    }
+            }
 
-    if (e.key === "ArrowRight") {
+            else if(event.key === "ArrowRight"){
 
-        this.nextImage();
+                this.nextImage();
 
-    }
+            }
 
-    if (e.key === "ArrowLeft") {
+            else if(event.key === "ArrowLeft"){
 
-        this.previousImage();
+                this.previousImage();
 
-    }
+            }
 
-    return;
+            return;
 
-}
+        }
 
-        switch (e.key) {
+        if(event.target instanceof HTMLVideoElement){
 
-            case "ArrowRight":
-            case "ArrowDown":
+            return;
 
-                this.nextPage();
+        }
 
-                break;
+        if(["ArrowRight", "ArrowDown"].includes(event.key)){
 
-            case "ArrowLeft":
-            case "ArrowUp":
+            event.preventDefault();
 
-                this.previousPage();
+            this.nextPage();
 
-                break;
+        }
+
+        else if(["ArrowLeft", "ArrowUp"].includes(event.key)){
+
+            event.preventDefault();
+
+            this.previousPage();
 
         }
 
@@ -329,67 +518,73 @@ for(let i=0;i<pageImages.length;i++){
 
     openImage(index) {
 
-    this.currentImageIndex = index;
+        const images = this.getProject().images;
 
-    const project = this.projects[0];
+        if(images.length === 0){
 
-    this.viewerImage.src =
-    `images/${project.images[index]}`;
+            return;
 
-    this.viewerCount.textContent =
-        `${index + 1} / ${project.images.length}`;
+        }
 
-    this.viewer.classList.add("show");
+        this.currentImageIndex = index;
 
-}
+        this.viewerImage.src = `images/${images[index]}`;
+
+        this.viewerCount.textContent = `${index + 1} / ${images.length}`;
+
+        this.viewer.classList.add("show");
+
+    }
 
     previousImage() {
 
-    const project = this.projects[0];
+        const images = this.getProject().images;
 
-    this.currentImageIndex--;
+        if(images.length === 0){
 
-    if (this.currentImageIndex < 0) {
+            return;
 
-        this.currentImageIndex = project.images.length - 1;
+        }
+
+        this.currentImageIndex =
+
+            (this.currentImageIndex - 1 + images.length) % images.length;
+
+        this.updateViewerImage(images);
 
     }
-
-    this.viewerImage.src =
-    `images/${project.images[this.currentImageIndex]}`;
-
-    this.viewerCount.textContent =
-        `${this.currentImageIndex + 1} / ${project.images.length}`;
-
-}
 
     nextImage() {
 
-    const project = this.projects[0];
+        const images = this.getProject().images;
 
-    this.currentImageIndex++;
+        if(images.length === 0){
 
-    if (this.currentImageIndex >= project.images.length) {
+            return;
 
-        this.currentImageIndex = 0;
+        }
+
+        this.currentImageIndex = (this.currentImageIndex + 1) % images.length;
+
+        this.updateViewerImage(images);
 
     }
 
-    this.viewerImage.src =
-    `images/${project.images[this.currentImageIndex]}`;
+    updateViewerImage(images) {
 
-    this.viewerCount.textContent =
-        `${this.currentImageIndex + 1} / ${project.images.length}`;
+        this.viewerImage.src = `images/${images[this.currentImageIndex]}`;
 
-}
-    
+        this.viewerCount.textContent = `${this.currentImageIndex + 1} / ${images.length}`;
+
+    }
+
     closeImage() {
 
-    this.viewer.classList.remove("show");
+        this.viewer.classList.remove("show");
 
-    this.viewerImage.src = "";
+        this.viewerImage.src = "";
 
-}
+    }
 
 }
 
