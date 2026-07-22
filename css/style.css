@@ -522,6 +522,8 @@ body{
         opacity .35s ease,
         transform .35s ease;
 
+    pointer-events:none;
+
 }
 
 /* ==========================================
@@ -564,12 +566,6 @@ body{
 
 }
 
-.image-box:hover::before{
-
-    left:160%;
-
-}
-
 .image-overlay span{
 
     color:rgba(255,255,255,.92);
@@ -592,21 +588,6 @@ body{
 
 }
 
-.image-box:hover{
-
-    border-color:rgba(255,255,255,.25);
-
-    box-shadow:
-        0 12px 40px rgba(0,0,0,.35);
-
-}
-
-.image-box:hover img{
-
-    transform:scale(1.035);
-
-}
-
 .image-box:active img{
 
     transform:scale(1.06);
@@ -615,19 +596,44 @@ body{
 
 }
 
-.image-box:hover .image-overlay{
+@media (hover:hover) and (pointer:fine){
 
-    opacity:1;
+    .image-box:hover::before{
 
-    transform:translateY(0);
+        left:160%;
 
-}
+    }
 
-.image-box:hover .arrow{
+    .image-box:hover{
 
-    transform:
-        translateX(5px)
-        translateY(-5px);
+        border-color:rgba(255,255,255,.25);
+
+        box-shadow:
+            0 12px 40px rgba(0,0,0,.35);
+
+    }
+
+    .image-box:hover img{
+
+        transform:scale(1.035);
+
+    }
+
+    .image-box:hover .image-overlay{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+    .image-box:hover .arrow{
+
+        transform:
+            translateX(5px)
+            translateY(-5px);
+
+    }
 
 }
 /* ======================================================

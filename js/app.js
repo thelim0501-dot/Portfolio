@@ -272,7 +272,7 @@ class PortfolioApp {
 
                 image.loading = "lazy";
 
-                image.addEventListener("click", () => this.openImage(imageIndex));
+                box.addEventListener("click", () => this.openImage(imageIndex));
 
                 const overlay = document.createElement("div");
 
