@@ -100,6 +100,8 @@
 
                 <button id="visualizationTab" class="media-tab" type="button" role="tab" aria-selected="false">
 
+                    <span class="media-tab-preview" aria-hidden="true"></span>
+
                     <span class="media-tab-number">01</span>
 
                     <span class="media-tab-title">VISUALIZATION</span>
@@ -109,6 +111,8 @@
                 </button>
 
                 <button id="filmTab" class="media-tab" type="button" role="tab" aria-selected="false">
+
+                    <span class="media-tab-preview" aria-hidden="true"></span>
 
                     <span class="media-tab-number">02</span>
 
@@ -147,6 +151,12 @@
     <div id="pageNumber">
 
         01 / 03
+
+    </div>
+
+    <div id="pageProgress" role="progressbar" aria-label="Page progress" aria-valuemin="1" aria-valuenow="1" aria-valuemax="3">
+
+        <span id="pageProgressBar"></span>
 
     </div>
 

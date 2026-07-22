@@ -14,6 +14,8 @@ class PortfolioApp {
         this.prevBtn = document.getElementById("prevBtn");
         this.nextBtn = document.getElementById("nextBtn");
         this.pageNumber = document.getElementById("pageNumber");
+        this.pageProgress = document.getElementById("pageProgress");
+        this.pageProgressBar = document.getElementById("pageProgressBar");
         this.navigation = document.getElementById("navigation");
 
         this.viewer = document.getElementById("viewer");
@@ -418,6 +420,8 @@ class PortfolioApp {
 
         this.createPortfolioPages();
 
+        this.updateCategoryPreviews();
+
         this.updatePage();
 
     }
@@ -469,6 +473,137 @@ class PortfolioApp {
         }
 
         return `images/${encodeURIComponent(fileName)}`;
+
+    }
+
+    updateCategoryPreviews() {
+
+        const project = this.getProject();
+        const firstImage = project.images[0];
+        const firstVideo = project.videos[0];
+
+        this.renderCategoryPreview(
+            this.visualizationTab,
+            firstImage
+                ? {
+                    type: "image",
+                    src: this.getThumbnailUrl(firstImage)
+                }
+                : null
+        );
+
+        this.renderCategoryPreview(
+            this.filmTab,
+            firstVideo
+                ? firstVideo.poster
+                    ? {
+                        type: "image",
+                        src: this.getThumbnailUrl(firstVideo.poster)
+                    }
+                    : {
+                        type: "video",
+                        src: firstVideo.url
+                    }
+                : null
+        );
+
+    }
+
+    renderCategoryPreview(tab, previewData) {
+
+        const preview = tab?.querySelector(".media-tab-preview");
+
+        if(!preview){
+
+            return;
+
+        }
+
+        preview.replaceChildren();
+        tab.classList.toggle("has-preview", Boolean(previewData));
+        tab.onpointerenter = null;
+        tab.onpointerleave = null;
+        tab.onfocus = null;
+        tab.onblur = null;
+
+        if(!previewData){
+
+            return;
+
+        }
+
+        if(previewData.type === "image"){
+
+            const image = document.createElement("img");
+
+            image.src = previewData.src;
+            image.alt = "";
+            image.decoding = "async";
+            image.loading = "eager";
+
+            image.addEventListener("error", () => {
+
+                tab.classList.remove("has-preview");
+
+            });
+
+            preview.appendChild(image);
+
+            return;
+
+        }
+
+        const video = document.createElement("video");
+
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = "none";
+        video.tabIndex = -1;
+        video.setAttribute("aria-hidden", "true");
+
+        const startPreview = () => {
+
+            if(!window.matchMedia("(hover: hover) and (pointer: fine)").matches){
+
+                return;
+
+            }
+
+            if(!video.src){
+
+                video.src = previewData.src;
+
+            }
+
+            const playPromise = video.play();
+
+            if(playPromise){
+
+                playPromise.catch(() => {});
+
+            }
+
+        };
+
+        const stopPreview = () => {
+
+            video.pause();
+
+        };
+
+        video.addEventListener("error", () => {
+
+            tab.classList.remove("has-preview");
+
+        });
+
+        tab.onpointerenter = startPreview;
+        tab.onpointerleave = stopPreview;
+        tab.onfocus = startPreview;
+        tab.onblur = stopPreview;
+
+        preview.appendChild(video);
 
     }
 
@@ -1534,6 +1669,13 @@ class PortfolioApp {
         this.pageNumber.textContent =
 
             `${String(this.currentPage + 1).padStart(2, "0")} / ${String(this.pages.length).padStart(2, "0")}`;
+
+        const pageTotal = Math.max(this.pages.length, 1);
+        const pageCurrent = this.currentPage + 1;
+
+        this.pageProgressBar.style.transform = `scaleX(${pageCurrent / pageTotal})`;
+        this.pageProgress.setAttribute("aria-valuenow", String(pageCurrent));
+        this.pageProgress.setAttribute("aria-valuemax", String(pageTotal));
 
         this.prevBtn.disabled = this.currentPage === 0;
 
