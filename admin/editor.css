@@ -504,6 +504,30 @@ body{
 
 }
 
+.video-poster-button{
+
+    height:38px;
+
+    border:1px solid #365341;
+
+    border-radius:8px;
+
+    background:#1b2b21;
+
+    color:#8ff3aa;
+
+    cursor:pointer;
+
+}
+
+.video-poster-button:hover{
+
+    border-color:#6eff95;
+
+    background:#223729;
+
+}
+
 .video-delete-button{
 
     height:38px;

@@ -34,6 +34,7 @@ const videoModeBtn = document.getElementById("videoModeBtn");
 const settingsModeBtn = document.getElementById("settingsModeBtn");
 const videoUploadBtn = document.getElementById("videoUploadBtn");
 const videoFileInput = document.getElementById("videoFileInput");
+const videoPosterInput = document.getElementById("videoPosterInput");
 const videoStatus = document.getElementById("videoStatus");
 const videoCanvas = document.getElementById("videoCanvas");
 const settingsCanvas = document.getElementById("settingsCanvas");
@@ -52,6 +53,8 @@ let images = [];
 let videos = [];
 
 let videoSortable = null;
+
+let posterTargetVideoId = null;
 
 let editorMode = "images";
 
@@ -144,6 +147,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     videoUploadBtn.addEventListener("click", () => videoFileInput.click());
 
     videoFileInput.addEventListener("change", uploadVideos);
+
+    videoPosterInput.addEventListener("change", uploadVideoPoster);
 
     publishBtn.addEventListener("click", publishProjects);
 
@@ -1828,6 +1833,12 @@ function renderVideos(){
 
         player.src = video.url;
 
+        if(video.poster){
+
+            player.poster = `../images/${encodeURIComponent(video.poster)}`;
+
+        }
+
         player.controls = true;
 
         player.preload = "metadata";
@@ -1870,6 +1881,16 @@ function renderVideos(){
 
         meta.textContent = `${video.file || "video"} · ${formatFileSize(video.size)}`;
 
+        const posterButton = document.createElement("button");
+
+        posterButton.className = "video-poster-button";
+
+        posterButton.type = "button";
+
+        posterButton.textContent = video.poster ? "Replace Poster" : "+ Add Poster";
+
+        posterButton.addEventListener("click", () => selectVideoPoster(video));
+
         const deleteButton = document.createElement("button");
 
         deleteButton.className = "video-delete-button";
@@ -1880,7 +1901,7 @@ function renderVideos(){
 
         deleteButton.addEventListener("click", () => deleteVideo(video));
 
-        body.append(indexLabel, titleInput, meta, deleteButton);
+        body.append(indexLabel, titleInput, meta, posterButton, deleteButton);
 
         card.append(preview, body);
 
@@ -1915,6 +1936,84 @@ function renderVideos(){
         }
 
     });
+
+}
+
+function selectVideoPoster(video){
+
+    posterTargetVideoId = video.id;
+
+    videoPosterInput.value = "";
+
+    videoPosterInput.click();
+
+}
+
+async function uploadVideoPoster(){
+
+    const file = videoPosterInput.files[0];
+
+    const video = videos.find(item => item.id === posterTargetVideoId);
+
+    if(!file || !video){
+
+        posterTargetVideoId = null;
+
+        return;
+
+    }
+
+    setVideoStatus(`포스터 업로드 중 · ${file.name}`);
+
+    try {
+
+        const formData = new FormData();
+
+        formData.append("poster", file);
+
+        const response = await fetch(
+
+            `/video/${encodeURIComponent(video.id)}/poster`,
+
+            {
+
+                method: "POST",
+
+                body: formData
+
+            }
+
+        );
+
+        const result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "포스터 업로드에 실패했습니다.");
+
+        }
+
+        video.poster = result.poster;
+
+        renderVideos();
+
+        setVideoStatus("영상 포스터가 저장되었습니다.", "ready");
+
+    }
+
+    catch(error){
+
+        setVideoStatus(error.message || "포스터 업로드에 실패했습니다.", "error");
+
+    }
+
+    finally {
+
+        posterTargetVideoId = null;
+
+        videoPosterInput.value = "";
+
+    }
 
 }
 

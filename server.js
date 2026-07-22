@@ -181,7 +181,23 @@ function validateProjects(projects){
 
             typeof video.key !== "string" ||
 
-            typeof video.url !== "string";
+            typeof video.url !== "string" ||
+
+            (
+
+                video.poster != null &&
+
+                (
+
+                    typeof video.poster !== "string" ||
+
+                    !video.poster.trim() ||
+
+                    path.basename(video.poster) !== video.poster
+
+                )
+
+            );
 
     })){
 
@@ -510,6 +526,90 @@ const videoUpload = multer({
 
 });
 
+const posterUpload = multer({
+
+    storage: multer.diskStorage({
+
+        destination(req, file, cb){
+
+            cb(null, uploadFolder);
+
+        },
+
+        filename(req, file, cb){
+
+            const originalName = decodeUploadName(file.originalname);
+
+            const extension = path.extname(originalName).toLowerCase();
+
+            const videoId = String(req.params.id || "video")
+
+                .replace(/[^a-zA-Z0-9-]/g, "");
+
+            cb(null, `film-poster-${videoId}-${Date.now()}${extension}`);
+
+        }
+
+    }),
+
+    limits: {
+
+        fileSize: 30 * 1024 * 1024
+
+    },
+
+    fileFilter(req, file, cb){
+
+        const originalName = decodeUploadName(file.originalname);
+
+        const supported =
+
+            ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype) ||
+
+            /\.(jpg|jpeg|png|webp)$/i.test(originalName);
+
+        cb(
+
+            supported ? null : new Error("JPG, PNG 또는 WebP 포스터만 업로드할 수 있습니다."),
+
+            supported
+
+        );
+
+    }
+
+});
+
+function removePosterFileIfUnused(fileName, project){
+
+    if(
+
+        typeof fileName !== "string" ||
+
+        !fileName ||
+
+        path.basename(fileName) !== fileName
+
+    ){
+
+        return;
+
+    }
+
+    const usedByGallery = project.images.includes(fileName);
+
+    const usedByVideo = project.videos.some(video => video.poster === fileName);
+
+    if(usedByGallery || usedByVideo){
+
+        return;
+
+    }
+
+    fs.rmSync(path.join(uploadFolder, fileName), { force: true });
+
+}
+
 // ======================================================
 // Upload Images
 // ======================================================
@@ -710,6 +810,72 @@ app.post("/videos/upload", (req, res) => {
 
 });
 
+app.post("/video/:id/poster", (req, res) => {
+
+    posterUpload.single("poster")(req, res, error => {
+
+        if(error){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: error.message
+
+            });
+
+        }
+
+        if(!req.file){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "업로드할 포스터 이미지가 없습니다."
+
+            });
+
+        }
+
+        const projects = readProjects();
+
+        const project = ensureProject(projects);
+
+        const video = project.videos.find(item => item.id === req.params.id);
+
+        if(!video){
+
+            fs.rmSync(req.file.path, { force: true });
+
+            return res.status(404).json({
+
+                success: false,
+
+                message: "영상을 찾을 수 없습니다."
+
+            });
+
+        }
+
+        const previousPoster = video.poster;
+
+        video.poster = req.file.filename;
+
+        writeProjects(projects);
+
+        if(previousPoster && previousPoster !== video.poster){
+
+            removePosterFileIfUnused(previousPoster, project);
+
+        }
+
+        res.json({ success: true, poster: video.poster });
+
+    });
+
+});
+
 app.delete("/video/:id", async (req, res) => {
 
     if(!r2Ready){
@@ -749,6 +915,8 @@ app.delete("/video/:id", async (req, res) => {
         }));
 
         project.videos.splice(videoIndex, 1);
+
+        removePosterFileIfUnused(video.poster, project);
 
         writeProjects(projects);
 
@@ -830,6 +998,12 @@ app.get("/system/status", (req, res) => {
 
         const videos = Array.isArray(project.videos) ? project.videos : [];
 
+        const posterImages = videos
+
+            .map(video => video?.poster)
+
+            .filter(Boolean);
+
         const diskImages = fs.existsSync(uploadFolder)
 
             ? fs.readdirSync(uploadFolder).filter(file => /\.(jpg|jpeg|png|webp)$/i.test(file))
@@ -850,13 +1024,15 @@ app.get("/system/status", (req, res) => {
 
             .map(([file, count]) => ({ file, count }));
 
-        const missingImages = [...new Set(images.filter(image => {
+        const referencedImageFiles = [...images, ...posterImages];
+
+        const missingImages = [...new Set(referencedImageFiles.filter(image => {
 
             return !fs.existsSync(path.join(uploadFolder, image));
 
         }))];
 
-        const referencedImages = new Set(images);
+        const referencedImages = new Set(referencedImageFiles);
 
         const unusedImages = diskImages.filter(file => !referencedImages.has(file));
 

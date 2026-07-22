@@ -82,7 +82,17 @@ if(!Array.isArray(projects) || !Array.isArray(projects[0]?.images)){
 
 const publicImages = [...new Set(projects[0].images)];
 
-for(const fileName of publicImages){
+const publicPosters = [...new Set(
+
+    (Array.isArray(projects[0].videos) ? projects[0].videos : [])
+
+        .map(video => video?.poster)
+
+        .filter(Boolean)
+
+)];
+
+for(const fileName of [...new Set([...publicImages, ...publicPosters])]){
 
     if(typeof fileName !== "string" || path.basename(fileName) !== fileName){
 
@@ -98,6 +108,6 @@ fs.writeFileSync(path.join(outputFolder, ".nojekyll"), "", "utf8");
 
 console.log(
 
-    `Public build complete: ${publicImages.length} images, ${projects[0].videos?.length || 0} videos`
+    `Public build complete: ${publicImages.length} images, ${publicPosters.length} posters, ${projects[0].videos?.length || 0} videos`
 
 );
