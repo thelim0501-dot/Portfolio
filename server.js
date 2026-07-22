@@ -19,7 +19,6 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 const execFileAsync = promisify(execFile);
 
 const projectFile = path.join(__dirname, "projects.json");
-const backupFile = path.join(__dirname, "projects_backup.json");
 
 const backupFolder = path.join(__dirname, "backups");
 const tempVideoFolder = path.join(__dirname, "temp-uploads");
@@ -108,15 +107,179 @@ function ensureProject(projects){
 
 function writeProjects(projects){
 
+    const tempFile = `${projectFile}.tmp`;
+
     fs.writeFileSync(
 
-        projectFile,
+        tempFile,
 
         JSON.stringify(projects, null, 4),
 
         "utf8"
 
     );
+
+    fs.renameSync(tempFile, projectFile);
+
+}
+
+function validateProjects(projects){
+
+    const errors = [];
+
+    if(!Array.isArray(projects) || projects.length === 0){
+
+        return {
+
+            valid: false,
+
+            errors: ["프로젝트 데이터가 비어 있거나 배열 형식이 아닙니다."]
+
+        };
+
+    }
+
+    const project = projects[0];
+
+    if(!project || typeof project !== "object" || Array.isArray(project)){
+
+        errors.push("첫 번째 프로젝트 데이터가 객체 형식이 아닙니다.");
+
+    }
+
+    if(!Array.isArray(project?.images)){
+
+        errors.push("images가 배열 형식이 아닙니다.");
+
+    }
+
+    else if(project.images.some(image => {
+
+        return typeof image !== "string" ||
+
+            !image.trim() ||
+
+            path.basename(image) !== image;
+
+    })){
+
+        errors.push("images에 잘못된 파일명이 포함되어 있습니다.");
+
+    }
+
+    if(project?.videos != null && !Array.isArray(project.videos)){
+
+        errors.push("videos가 배열 형식이 아닙니다.");
+
+    }
+
+    else if(Array.isArray(project?.videos) && project.videos.some(video => {
+
+        return !video ||
+
+            typeof video.id !== "string" ||
+
+            typeof video.key !== "string" ||
+
+            typeof video.url !== "string";
+
+    })){
+
+        errors.push("videos에 잘못된 영상 정보가 포함되어 있습니다.");
+
+    }
+
+    return {
+
+        valid: errors.length === 0,
+
+        errors
+
+    };
+
+}
+
+function getBackupTimestamp(){
+
+    const now = new Date();
+
+    return now.getFullYear() +
+
+        String(now.getMonth() + 1).padStart(2, "0") +
+
+        String(now.getDate()).padStart(2, "0") + "_" +
+
+        String(now.getHours()).padStart(2, "0") +
+
+        String(now.getMinutes()).padStart(2, "0") +
+
+        String(now.getSeconds()).padStart(2, "0");
+
+}
+
+function getBackupFiles(){
+
+    if(!fs.existsSync(backupFolder)){
+
+        return [];
+
+    }
+
+    return fs.readdirSync(backupFolder)
+
+        .filter(file => {
+
+            return path.basename(file) === file &&
+
+                /^backup_\d{8}_\d{6}(?:_\d+)?\.json$/.test(file);
+
+        })
+
+        .sort()
+
+        .reverse();
+
+}
+
+function trimBackups(){
+
+    const backups = getBackupFiles().reverse();
+
+    while(backups.length > 20){
+
+        fs.unlinkSync(path.join(backupFolder, backups.shift()));
+
+    }
+
+}
+
+function createProjectBackup(){
+
+    if(!fs.existsSync(projectFile)){
+
+        return null;
+
+    }
+
+    const timestamp = getBackupTimestamp();
+
+    let suffix = 0;
+
+    let fileName = `backup_${timestamp}.json`;
+
+    while(fs.existsSync(path.join(backupFolder, fileName))){
+
+        suffix++;
+
+        fileName = `backup_${timestamp}_${suffix}.json`;
+
+    }
+
+    fs.copyFileSync(projectFile, path.join(backupFolder, fileName));
+
+    trimBackups();
+
+    return fileName;
 
 }
 
@@ -252,6 +415,13 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.get(["/admin", "/admin/", "/admin/index.html"], (req, res) => {
+
+    res.sendFile(path.join(__dirname, "admin", "editor.html"));
+
+});
+
 app.use(express.static(__dirname));
 
 // =====================================
@@ -376,15 +546,7 @@ app.post("/upload", upload.array("images"), (req, res) => {
 
     projects[0].images.push(...files);
 
-    fs.writeFileSync(
-
-        projectFile,
-
-        JSON.stringify(projects, null, 4),
-
-        "utf8"
-
-    );
+    writeProjects(projects);
 
     res.json({
 
@@ -654,6 +816,130 @@ app.get("/projects", (req, res) => {
 
 });
 
+app.get("/system/status", (req, res) => {
+
+    try {
+
+        const projects = readProjects();
+
+        const validation = validateProjects(projects);
+
+        const project = projects[0] || {};
+
+        const images = Array.isArray(project.images) ? project.images : [];
+
+        const videos = Array.isArray(project.videos) ? project.videos : [];
+
+        const diskImages = fs.existsSync(uploadFolder)
+
+            ? fs.readdirSync(uploadFolder).filter(file => /\.(jpg|jpeg|png|webp)$/i.test(file))
+
+            : [];
+
+        const imageCounts = new Map();
+
+        images.forEach(image => {
+
+            imageCounts.set(image, (imageCounts.get(image) || 0) + 1);
+
+        });
+
+        const duplicateImages = [...imageCounts.entries()]
+
+            .filter(([, count]) => count > 1)
+
+            .map(([file, count]) => ({ file, count }));
+
+        const missingImages = [...new Set(images.filter(image => {
+
+            return !fs.existsSync(path.join(uploadFolder, image));
+
+        }))];
+
+        const referencedImages = new Set(images);
+
+        const unusedImages = diskImages.filter(file => !referencedImages.has(file));
+
+        const errors = [...validation.errors];
+
+        if(missingImages.length > 0){
+
+            errors.push(`참조된 이미지 파일 ${missingImages.length}개가 images 폴더에 없습니다.`);
+
+        }
+
+        const warnings = [];
+
+        if(duplicateImages.length > 0){
+
+            warnings.push(`중복 참조 이미지가 ${duplicateImages.length}종류 있습니다.`);
+
+        }
+
+        if(unusedImages.length > 0){
+
+            warnings.push(`projects.json에서 사용하지 않는 이미지가 ${unusedImages.length}개 있습니다.`);
+
+        }
+
+        const backups = getBackupFiles();
+
+        res.json({
+
+            healthy: errors.length === 0,
+
+            counts: {
+
+                images: images.length,
+
+                videos: videos.length,
+
+                backups: backups.length,
+
+                diskImages: diskImages.length
+
+            },
+
+            errors,
+
+            warnings,
+
+            details: {
+
+                missingImages,
+
+                duplicateImages,
+
+                unusedImages,
+
+                latestBackup: backups[0] || null
+
+            }
+
+        });
+
+    }
+
+    catch(error){
+
+        res.status(500).json({
+
+            healthy: false,
+
+            counts: { images: 0, videos: 0, backups: getBackupFiles().length },
+
+            errors: ["projects.json을 읽거나 검사할 수 없습니다."],
+
+            warnings: [],
+
+            details: { message: error.message }
+
+        });
+
+    }
+
+});
+
 // =====================================
 // Save
 // =====================================
@@ -666,21 +952,27 @@ app.post("/save", (req, res) => {
 
     if(Array.isArray(req.body.images)){
 
-        project.images = req.body.images.filter(image => typeof image === "string");
+        project.images = req.body.images;
 
     }
 
     if(Array.isArray(req.body.videos)){
 
-        project.videos = req.body.videos.filter(video => {
+        project.videos = req.body.videos;
 
-            return video &&
+    }
 
-                typeof video.id === "string" &&
+    const validation = validateProjects(projects);
 
-                typeof video.key === "string" &&
+    if(!validation.valid){
 
-                typeof video.url === "string";
+        return res.status(400).json({
+
+            success: false,
+
+            message: "저장할 데이터 형식이 올바르지 않습니다.",
+
+            errors: validation.errors
 
         });
 
@@ -698,65 +990,11 @@ app.post("/save", (req, res) => {
 
         lastBackupTime = currentTime;
 
-        const backupNow = new Date();
-
-        const timestamp =
-            backupNow.getFullYear() +
-            String(backupNow.getMonth()+1).padStart(2,"0") +
-            String(backupNow.getDate()).padStart(2,"0") + "_" +
-            String(backupNow.getHours()).padStart(2,"0") +
-            String(backupNow.getMinutes()).padStart(2,"0") +
-            String(backupNow.getSeconds()).padStart(2,"0");
-
-        const backupPath = path.join(
-
-            backupFolder,
-
-            `backup_${timestamp}.json`
-
-        );
-
-        fs.copyFileSync(
-
-            projectFile,
-
-            backupPath
-
-        );
-
-        const backups = fs.readdirSync(backupFolder)
-
-            .filter(file => file.endsWith(".json"))
-
-            .sort();
-
-        while(backups.length > 20){
-
-            fs.unlinkSync(
-
-                path.join(
-
-                    backupFolder,
-
-                    backups.shift()
-
-                )
-
-            );
-
-        }
+        createProjectBackup();
 
     }
 
-    fs.writeFileSync(
-
-        projectFile,
-
-        JSON.stringify(projects, null, 4),
-
-        "utf8"
-
-    );
+    writeProjects(projects);
 
     res.json({
 
@@ -772,65 +1010,127 @@ app.post("/save", (req, res) => {
 
 app.get("/backups", (req, res) => {
 
-    if(!fs.existsSync(backupFolder)){
-
-        return res.json([]);
-
-    }
-
-    const backups = fs.readdirSync(backupFolder)
-
-        .filter(file => file.endsWith(".json"))
-
-        .sort()
-
-        .reverse();
-
-    res.json(backups);
+    res.json(getBackupFiles());
 
 });
 
-// =====================================
-// Restore Selected Backup
-// =====================================
+app.post("/backups/create", (req, res) => {
 
-app.post("/restore-backup", (req, res) => {
+    try {
 
-    const { file } = req.body;
+        const file = createProjectBackup();
 
-    const backupPath = path.join(
+        if(!file){
 
-        backupFolder,
+            return res.status(404).json({
 
-        file
+                success: false,
 
-    );
+                message: "백업할 projects.json 파일이 없습니다."
 
-    if(!fs.existsSync(backupPath)){
+            });
 
-        return res.json({
+        }
 
-            success:false,
+        res.json({ success: true, file });
 
-            message:"백업 파일을 찾을 수 없습니다."
+    }
+
+    catch(error){
+
+        console.error("Backup creation failed:", error.message);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "백업 생성에 실패했습니다."
 
         });
 
     }
 
-    fs.copyFileSync(
+});
 
-        backupPath,
+// =====================================
+// Restore Backup
+// =====================================
 
-        projectFile
+app.post("/restore-backup", (req, res) => {
 
-    );
+    try {
 
-    res.json({
+        const backups = getBackupFiles();
 
-        success:true
+        const requestedFile = req.body?.file || backups[0];
 
-    });
+        if(!requestedFile ||
+
+            path.basename(requestedFile) !== requestedFile ||
+
+            !backups.includes(requestedFile)){
+
+            return res.status(404).json({
+
+                success: false,
+
+                message: "선택한 백업 파일을 찾을 수 없습니다."
+
+            });
+
+        }
+
+        const backupPath = path.join(backupFolder, requestedFile);
+
+        const backupProjects = JSON.parse(fs.readFileSync(backupPath, "utf8"));
+
+        const validation = validateProjects(backupProjects);
+
+        if(!validation.valid){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "백업 데이터 형식이 올바르지 않아 복원하지 않았습니다.",
+
+                errors: validation.errors
+
+            });
+
+        }
+
+        ensureProject(backupProjects);
+
+        const safetyBackup = createProjectBackup();
+
+        writeProjects(backupProjects);
+
+        res.json({
+
+            success: true,
+
+            restoredFile: requestedFile,
+
+            safetyBackup
+
+        });
+
+    }
+
+    catch(error){
+
+        console.error("Backup restore failed:", error.message);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "백업 복원에 실패했습니다."
+
+        });
+
+    }
 
 });
 
@@ -1149,50 +1449,6 @@ app.post("/publish", async (req, res) => {
         });
 
     }
-
-});
-
-// =====================================
-// Admin
-// =====================================
-
-app.get("/admin", (req, res) => {
-
-    res.sendFile(path.join(__dirname, "admin", "index.html"));
-
-});
-
-// =====================================
-// Restore Backup
-// =====================================
-
-app.post("/restore-backup", (req, res) => {
-
-    if(!fs.existsSync(backupFile)){
-
-        return res.json({
-
-            success:false,
-
-            message:"백업 파일이 없습니다."
-
-        });
-
-    }
-
-    fs.copyFileSync(
-
-        backupFile,
-
-        projectFile
-
-    );
-
-    res.json({
-
-        success:true
-
-    });
 
 });
 

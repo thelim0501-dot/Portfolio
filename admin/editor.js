@@ -22,20 +22,30 @@ const duplicateBtn = document.getElementById("duplicateBtn");
 const movePanel = document.getElementById("movePanel");
 const movePage = document.getElementById("movePage");
 const pageCanvas = document.getElementById("pageCanvas");
-const restoreBackupBtn = document.getElementById("restoreBackupBtn");
-const backupPanel = document.getElementById("backupPanel");
 const backupList = document.getElementById("backupList");
 const restoreSelectedBackup = document.getElementById("restoreSelectedBackup");
+const createBackupBtn = document.getElementById("createBackupBtn");
+const refreshSettingsBtn = document.getElementById("refreshSettingsBtn");
+const backupStatus = document.getElementById("backupStatus");
 const publishBtn = document.getElementById("publishBtn");
 const publishStatus = document.getElementById("publishStatus");
 const imageModeBtn = document.getElementById("imageModeBtn");
 const videoModeBtn = document.getElementById("videoModeBtn");
+const settingsModeBtn = document.getElementById("settingsModeBtn");
 const videoUploadBtn = document.getElementById("videoUploadBtn");
 const videoFileInput = document.getElementById("videoFileInput");
 const videoStatus = document.getElementById("videoStatus");
 const videoCanvas = document.getElementById("videoCanvas");
+const settingsCanvas = document.getElementById("settingsCanvas");
 const propertyPanel = document.getElementById("propertyPanel");
 const editorLayout = document.querySelector(".editor-layout");
+const settingsImageCount = document.getElementById("settingsImageCount");
+const settingsVideoCount = document.getElementById("settingsVideoCount");
+const settingsBackupCount = document.getElementById("settingsBackupCount");
+const settingsGitState = document.getElementById("settingsGitState");
+const settingsR2State = document.getElementById("settingsR2State");
+const settingsDataState = document.getElementById("settingsDataState");
+const settingsIssueList = document.getElementById("settingsIssueList");
 
 let images = [];
 
@@ -129,35 +139,31 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     videoModeBtn.addEventListener("click", () => switchEditorMode("videos"));
 
+    settingsModeBtn.addEventListener("click", () => switchEditorMode("settings"));
+
     videoUploadBtn.addEventListener("click", () => videoFileInput.click());
 
     videoFileInput.addEventListener("change", uploadVideos);
 
     publishBtn.addEventListener("click", publishProjects);
 
-    restoreBackupBtn.addEventListener(
+    restoreSelectedBackup.addEventListener(
 
-    "click",
+        "click",
 
-    loadBackupList
+        restoreSelected
 
-);
+    );
 
-restoreSelectedBackup.addEventListener(
+    createBackupBtn.addEventListener(
 
-    "click",
+        "click",
 
-    restoreSelected
+        createManualBackup
 
-);
+    );
 
-    restoreBackupBtn.addEventListener(
-
-    "click",
-
-    restoreBackup
-
-);
+    refreshSettingsBtn.addEventListener("click", loadSettingsStatus);
 
     confirmMovePage.addEventListener("click", movePageGroup);
 
@@ -214,6 +220,10 @@ fileInput.addEventListener("change", uploadImages);
     await loadPublishStatus();
 
     await loadR2Status();
+
+    await loadSystemStatus();
+
+    await loadBackupList();
 
     document.addEventListener("keydown", handleKeyboard);
 
@@ -1658,19 +1668,27 @@ function switchEditorMode(mode){
 
     editorMode = mode;
 
+    const imageMode = mode === "images";
+
     const videoMode = mode === "videos";
 
-    imageModeBtn.classList.toggle("active", !videoMode);
+    const settingsMode = mode === "settings";
 
-    imageModeBtn.setAttribute("aria-selected", String(!videoMode));
+    imageModeBtn.classList.toggle("active", imageMode);
+
+    imageModeBtn.setAttribute("aria-selected", String(imageMode));
 
     videoModeBtn.classList.toggle("active", videoMode);
 
     videoModeBtn.setAttribute("aria-selected", String(videoMode));
 
+    settingsModeBtn.classList.toggle("active", settingsMode);
+
+    settingsModeBtn.setAttribute("aria-selected", String(settingsMode));
+
     document.querySelectorAll(".image-tool").forEach(element => {
 
-        element.hidden = videoMode;
+        element.hidden = !imageMode;
 
     });
 
@@ -1680,17 +1698,25 @@ function switchEditorMode(mode){
 
     });
 
-    pageCanvas.hidden = videoMode;
+    pageCanvas.hidden = !imageMode;
 
     videoCanvas.hidden = !videoMode;
 
-    propertyPanel.hidden = videoMode;
+    settingsCanvas.hidden = !settingsMode;
 
-    editorLayout.classList.toggle("video-mode", videoMode);
+    propertyPanel.hidden = !imageMode;
+
+    editorLayout.classList.toggle("video-mode", !imageMode);
 
     if(videoMode){
 
         renderVideos();
+
+    }
+
+    if(settingsMode){
+
+        loadSettingsStatus();
 
     }
 
@@ -1708,6 +1734,10 @@ async function loadR2Status(){
 
         setVideoStatus(result.message, result.ready ? "ready" : "error");
 
+        settingsR2State.textContent = result.ready ? "Connected" : "Not configured";
+
+        settingsR2State.dataset.state = result.ready ? "ready" : "error";
+
     }
 
     catch(error){
@@ -1715,6 +1745,10 @@ async function loadR2Status(){
         videoUploadBtn.disabled = true;
 
         setVideoStatus("R2 연결 상태를 확인할 수 없습니다.", "error");
+
+        settingsR2State.textContent = "Unavailable";
+
+        settingsR2State.dataset.state = "error";
 
     }
 
@@ -2022,6 +2056,10 @@ async function loadPublishStatus(){
 
             publishBtn.disabled = false;
 
+            settingsGitState.textContent = `Connected · ${result.branch}`;
+
+            settingsGitState.dataset.state = "ready";
+
             setPublishStatus(
 
                 `Git 연결됨 (${result.branch})`,
@@ -2036,6 +2074,10 @@ async function loadPublishStatus(){
 
         publishBtn.disabled = true;
 
+        settingsGitState.textContent = "Not connected";
+
+        settingsGitState.dataset.state = "error";
+
         setPublishStatus(result.message, "error");
 
     }
@@ -2043,6 +2085,10 @@ async function loadPublishStatus(){
     catch(error){
 
         publishBtn.disabled = true;
+
+        settingsGitState.textContent = "Unavailable";
+
+        settingsGitState.dataset.state = "error";
 
         setPublishStatus("Git 연결 상태를 확인할 수 없습니다.", "error");
 
@@ -2526,122 +2572,140 @@ targetPage?.scrollIntoView({
 }
 
 // ======================================================
-// Restore Backup
+// Settings & Backups
 // ======================================================
 
-async function restoreBackup(){
+function formatBackupName(file){
 
-    if(!confirm("백업 파일로 복원하시겠습니까?")){
+    const match = file.match(/^backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(?:_(\d+))?\.json$/);
 
-        return;
+    if(!match){
 
-    }
-
-    const response = await fetch(
-
-        "/restore-backup",
-
-        {
-
-            method:"POST"
-
-        }
-
-    );
-
-    const result = await response.json();
-
-    if(!result.success){
-
-        alert(result.message);
-
-        return;
+        return file;
 
     }
 
-    await loadProjects();
+    const [, year, month, day, hour, minute, second, suffix] = match;
+
+    const suffixLabel = suffix ? ` · ${Number(suffix) + 1}` : "";
+
+    const backupDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+
+    const today = new Date();
+
+    if(backupDate.toDateString() === today.toDateString()){
+
+        return `오늘 ${hour}:${minute}:${second}${suffixLabel}`;
+
+    }
+
+    const yesterday = new Date();
+
+    yesterday.setDate(today.getDate() - 1);
+
+    if(backupDate.toDateString() === yesterday.toDateString()){
+
+        return `어제 ${hour}:${minute}:${second}${suffixLabel}`;
+
+    }
+
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}${suffixLabel}`;
 
 }
-
-// ======================================================
-// Load Backup List
-// ======================================================
 
 async function loadBackupList(){
 
-    const response = await fetch("/backups");
+    try {
 
-    const backups = await response.json();
+        const response = await fetch("/backups");
 
-    backupList.innerHTML = "";
+        const backups = await response.json();
 
-    backups.forEach(file=>{
+        backupList.innerHTML = "";
 
-        const option = document.createElement("option");
+        backups.forEach(file => {
 
-        option.value = file;
+            const option = document.createElement("option");
 
-        const name = file
-    .replace("backup_","")
-    .replace(".json","");
+            option.value = file;
 
-const date = name.substring(0,8);
-const time = name.substring(9);
+            option.textContent = formatBackupName(file);
 
-const year = date.substring(0,4);
-const month = date.substring(4,6);
-const day = date.substring(6,8);
+            backupList.appendChild(option);
 
-const hour = time.substring(0,2);
-const minute = time.substring(2,4);
-const second = time.substring(4,6);
+        });
 
-const backupDate = new Date(
-    `${year}-${month}-${day}T${hour}:${minute}:${second}`
-);
+        restoreSelectedBackup.disabled = backups.length === 0;
 
-const today = new Date();
+        if(backups.length === 0){
 
-const isToday =
-    backupDate.toDateString() === today.toDateString();
+            const option = document.createElement("option");
 
-const yesterday = new Date();
+            option.textContent = "생성된 백업이 없습니다.";
 
-yesterday.setDate(today.getDate()-1);
+            option.value = "";
 
-const isYesterday =
-    backupDate.toDateString() === yesterday.toDateString();
+            backupList.appendChild(option);
 
-if(isToday){
+        }
 
-    option.textContent =
-        `오늘 ${hour}:${minute}:${second}`;
+        settingsBackupCount.textContent = backups.length;
 
-}
-else if(isYesterday){
+    }
 
-    option.textContent =
-        `어제 ${hour}:${minute}:${second}`;
+    catch(error){
 
-}
-else{
+        restoreSelectedBackup.disabled = true;
 
-    option.textContent =
-        `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+        backupStatus.textContent = "백업 목록을 불러올 수 없습니다.";
+
+    }
 
 }
 
-        backupList.appendChild(option);
+async function createManualBackup(){
 
-    });
+    createBackupBtn.disabled = true;
 
-    backupPanel.style.display = "block";
+    backupStatus.textContent = "현재 상태를 백업하는 중...";
+
+    try {
+
+        clearTimeout(autoSaveTimer);
+
+        await saveProjects();
+
+        const response = await fetch("/backups/create", { method: "POST" });
+
+        const result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "백업 생성에 실패했습니다.");
+
+        }
+
+        backupStatus.textContent = `백업 완료 · ${formatBackupName(result.file)}`;
+
+        await loadBackupList();
+
+        await loadSystemStatus();
+
+    }
+
+    catch(error){
+
+        backupStatus.textContent = error.message || "백업 생성에 실패했습니다.";
+
+    }
+
+    finally {
+
+        createBackupBtn.disabled = false;
+
+    }
 
 }
-
-// ======================================================
-// Restore Selected Backup
-// ======================================================
 
 async function restoreSelected(){
 
@@ -2651,42 +2715,156 @@ async function restoreSelected(){
 
     }
 
-    if(!confirm("선택한 백업으로 복원하시겠습니까?")){
+    if(!confirm("선택한 백업으로 복원할까요? 현재 상태도 복원 직전에 자동 백업됩니다.")){
 
         return;
 
     }
 
-    const response = await fetch("/restore-backup",{
+    restoreSelectedBackup.disabled = true;
 
-        method:"POST",
+    backupStatus.textContent = "백업을 복원하는 중...";
 
-        headers:{
+    try {
 
-            "Content-Type":"application/json"
+        const response = await fetch("/restore-backup", {
 
-        },
+            method: "POST",
 
-        body:JSON.stringify({
+            headers: { "Content-Type": "application/json" },
 
-            file:backupList.value
+            body: JSON.stringify({ file: backupList.value })
 
-        })
+        });
 
-    });
+        const result = await response.json();
 
-    const result = await response.json();
+        if(!response.ok || !result.success){
 
-    if(!result.success){
+            throw new Error(result.message || "백업 복원에 실패했습니다.");
 
-        alert(result.message);
+        }
 
-        return;
+        await loadProjects();
+
+        await loadBackupList();
+
+        await loadSystemStatus();
+
+        backupStatus.textContent = `복원 완료 · ${formatBackupName(result.restoredFile)}`;
 
     }
 
-    await loadProjects();
+    catch(error){
 
-    backupPanel.style.display = "none";
+        backupStatus.textContent = error.message || "백업 복원에 실패했습니다.";
+
+    }
+
+    finally {
+
+        restoreSelectedBackup.disabled = !backupList.value;
+
+    }
+
+}
+
+async function loadSystemStatus(){
+
+    settingsDataState.textContent = "Checking project data...";
+
+    settingsDataState.dataset.state = "loading";
+
+    settingsIssueList.innerHTML = "";
+
+    try {
+
+        const response = await fetch("/system/status");
+
+        const result = await response.json();
+
+        settingsImageCount.textContent = result.counts?.images ?? 0;
+
+        settingsVideoCount.textContent = result.counts?.videos ?? 0;
+
+        settingsBackupCount.textContent = result.counts?.backups ?? 0;
+
+        settingsDataState.textContent = result.healthy
+
+            ? "Project data is valid"
+
+            : "Project data needs attention";
+
+        settingsDataState.dataset.state = result.healthy ? "ready" : "error";
+
+        const issues = [
+
+            ...(result.errors || []),
+
+            ...(result.warnings || [])
+
+        ];
+
+        if(issues.length === 0){
+
+            const item = document.createElement("li");
+
+            item.textContent = "누락되거나 잘못된 이미지·영상 정보가 없습니다.";
+
+            settingsIssueList.appendChild(item);
+
+        }
+
+        else {
+
+            issues.forEach(issue => {
+
+                const item = document.createElement("li");
+
+                item.textContent = issue;
+
+                settingsIssueList.appendChild(item);
+
+            });
+
+        }
+
+    }
+
+    catch(error){
+
+        settingsDataState.textContent = "Unable to inspect project data";
+
+        settingsDataState.dataset.state = "error";
+
+    }
+
+}
+
+async function loadSettingsStatus(){
+
+    refreshSettingsBtn.disabled = true;
+
+    try {
+
+        await Promise.all([
+
+            loadPublishStatus(),
+
+            loadR2Status(),
+
+            loadSystemStatus(),
+
+            loadBackupList()
+
+        ]);
+
+    }
+
+    finally {
+
+        refreshSettingsBtn.disabled = false;
+
+    }
 
 }

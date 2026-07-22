@@ -29,7 +29,7 @@ class PortfolioApp {
         this.projects = [];
         this.currentPage = 0;
         this.currentImageIndex = 0;
-        this.activeMediaType = "images";
+        this.activeMediaType = null;
 
         this.initialize();
 
@@ -168,13 +168,15 @@ class PortfolioApp {
 
         const imageMode = this.activeMediaType === "images";
 
+        const videoMode = this.activeMediaType === "videos";
+
         this.visualizationTab.classList.toggle("active", imageMode);
 
         this.visualizationTab.setAttribute("aria-selected", String(imageMode));
 
-        this.filmTab.classList.toggle("active", !imageMode);
+        this.filmTab.classList.toggle("active", videoMode);
 
-        this.filmTab.setAttribute("aria-selected", String(!imageMode));
+        this.filmTab.setAttribute("aria-selected", String(videoMode));
 
         this.visualizationCount.textContent = `${project.images.length} IMAGES`;
 
@@ -214,7 +216,7 @@ class PortfolioApp {
 
         }
 
-        else {
+        else if(this.activeMediaType === "images") {
 
             this.createImagePages();
 

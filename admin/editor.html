@@ -10,7 +10,7 @@
 
     <title>Portfolio Editor</title>
 
-    <link rel="stylesheet" href="editor.css">
+    <link rel="stylesheet" href="/admin/editor.css">
 
 </head>
 
@@ -29,6 +29,12 @@
         <button id="videoModeBtn" class="mode-button" type="button" role="tab" aria-selected="false">
 
             VIDEOS
+
+        </button>
+
+        <button id="settingsModeBtn" class="mode-button" type="button" role="tab" aria-selected="false">
+
+            SETTINGS
 
         </button>
 
@@ -133,6 +139,105 @@
         hidden>
 
     </div>
+
+    <section
+        id="settingsCanvas"
+        class="settings-canvas"
+        hidden>
+
+        <header class="settings-header">
+
+            <p>SYSTEM MANAGEMENT</p>
+
+            <h1>Settings</h1>
+
+            <span>백업, 연결 상태와 데이터 안정성을 확인합니다.</span>
+
+        </header>
+
+        <div class="settings-grid">
+
+            <article class="settings-card settings-overview-card">
+
+                <div class="settings-card-heading">
+
+                    <span>OVERVIEW</span>
+
+                    <button id="refreshSettingsBtn" type="button">Refresh</button>
+
+                </div>
+
+                <div class="settings-stats">
+
+                    <div><strong id="settingsImageCount">—</strong><span>Images</span></div>
+
+                    <div><strong id="settingsVideoCount">—</strong><span>Videos</span></div>
+
+                    <div><strong id="settingsBackupCount">—</strong><span>Backups</span></div>
+
+                </div>
+
+            </article>
+
+            <article class="settings-card">
+
+                <div class="settings-card-heading"><span>CONNECTIONS</span></div>
+
+                <div class="settings-status-row">
+
+                    <span>GitHub / Publish</span>
+
+                    <strong id="settingsGitState" data-state="loading">Checking...</strong>
+
+                </div>
+
+                <div class="settings-status-row">
+
+                    <span>Cloudflare R2</span>
+
+                    <strong id="settingsR2State" data-state="loading">Checking...</strong>
+
+                </div>
+
+            </article>
+
+            <article class="settings-card">
+
+                <div class="settings-card-heading"><span>DATA INTEGRITY</span></div>
+
+                <div id="settingsDataState" class="settings-data-state" data-state="loading">
+
+                    Checking project data...
+
+                </div>
+
+                <ul id="settingsIssueList" class="settings-issue-list"></ul>
+
+            </article>
+
+            <article class="settings-card settings-backup-card">
+
+                <div class="settings-card-heading"><span>BACKUP &amp; RESTORE</span></div>
+
+                <label for="backupList">Backup history</label>
+
+                <select id="backupList"></select>
+
+                <div class="settings-actions">
+
+                    <button id="createBackupBtn" type="button">Create Backup</button>
+
+                    <button id="restoreSelectedBackup" class="secondary" type="button">Restore Selected</button>
+
+                </div>
+
+                <span id="backupStatus" class="settings-helper" aria-live="polite"></span>
+
+            </article>
+
+        </div>
+
+    </section>
 
     <aside
         id="propertyPanel"
@@ -335,39 +440,6 @@
 
 </div>
 
-<div
-    id="backupPanel"
-    style="display:none;"
-    class="property-group">
-
-    <label>
-
-        Backup History
-
-    </label>
-
-    <select id="backupList">
-
-    </select>
-
-    <button id="restoreSelectedBackup">
-
-        Restore Selected
-
-    </button>
-
-</div>
-
-<div class="property-group">
-
-    <button id="restoreBackupBtn">
-
-        Restore Backup
-
-    </button>
-
-</div>
-
         </div>
 
     </aside>
@@ -376,7 +448,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 
-<script src="editor.js"></script>
+<script src="/admin/editor.js"></script>
 
 </body>
 
