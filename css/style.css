@@ -979,16 +979,6 @@ body{
 
 }
 
-#navigation button:hover{
-
-    background:white;
-
-    color:black;
-
-    transform:scale(1.08);
-
-}
-
 #navigation button:disabled{
 
     opacity:.25;
@@ -1190,17 +1180,6 @@ body{
 
 }
 
-#viewerPrev:hover,
-#viewerNext:hover{
-
-    background:white;
-
-    color:black;
-
-    transform:translateY(-50%) scale(1.08);
-
-}
-
 #closeViewer{
 
     position:absolute;
@@ -1221,12 +1200,6 @@ body{
     cursor:pointer;
 
     z-index:20;
-
-}
-
-#closeViewer:hover{
-
-    transform:rotate(90deg);
 
 }
 
@@ -1441,6 +1414,33 @@ body{
 }
 
 @media (hover:hover) and (pointer:fine){
+
+    #navigation button:hover{
+
+        background:white;
+
+        color:black;
+
+        transform:scale(1.08);
+
+    }
+
+    #viewerPrev:hover,
+    #viewerNext:hover{
+
+        background:white;
+
+        color:black;
+
+        transform:translateY(-50%) scale(1.08);
+
+    }
+
+    #closeViewer:hover{
+
+        transform:rotate(90deg);
+
+    }
 
     #videoViewerPrev:hover,
     #videoViewerNext:hover{

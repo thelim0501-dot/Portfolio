@@ -174,6 +174,29 @@ class PortfolioApp {
 
         });
 
+        [
+            this.prevBtn,
+            this.nextBtn,
+            this.viewerPrev,
+            this.viewerNext,
+            this.closeViewer,
+            this.videoViewerPrev,
+            this.videoViewerNext,
+            this.closeVideoViewer
+        ].forEach(button => {
+
+            button.addEventListener("pointerup", event => {
+
+                if(event.pointerType !== "mouse"){
+
+                    button.blur();
+
+                }
+
+            });
+
+        });
+
         this.app.addEventListener(
 
             "touchstart",
