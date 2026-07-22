@@ -71,6 +71,24 @@ function setDragTarget(card, index){
 
 }
 
+function getDragTarget(evt){
+
+    const pointer = evt.originalEvent;
+
+    const elementUnderPointer =
+        Number.isFinite(pointer?.clientX) &&
+        Number.isFinite(pointer?.clientY)
+            ? document.elementFromPoint(pointer.clientX, pointer.clientY)
+            : null;
+
+    return (
+        elementUnderPointer?.closest(".image[data-index]") ||
+        evt.related?.closest(".image[data-index]") ||
+        null
+    );
+
+}
+
 // ======================================================
 // Undo / Redo
 // ======================================================
@@ -382,6 +400,18 @@ header.addEventListener("click",()=>{
 
             clearDragTarget();
 
+            const originalEvent = evt.originalEvent;
+
+            if(
+                originalEvent?.shiftKey ||
+                originalEvent?.ctrlKey ||
+                originalEvent?.metaKey
+            ){
+
+                return;
+
+            }
+
             const draggedIndex = Number(evt.item.dataset.index);
 
             if(
@@ -403,7 +433,7 @@ header.addEventListener("click",()=>{
 
             }
 
-            const target = evt.related;
+            const target = getDragTarget(evt);
 
             const targetIndex = Number(target?.dataset.index);
 
@@ -415,11 +445,15 @@ header.addEventListener("click",()=>{
 
                 setDragTarget(target, targetIndex);
 
-                return false;
+            }
+
+            else{
+
+                clearDragTarget();
 
             }
 
-            clearDragTarget();
+            return false;
 
         },
 
@@ -474,7 +508,7 @@ emptyInsertThreshold: 80,
                 await swapImages(fromIndex, swapTarget);
 
             }
-            else{
+            else if(selectedImages.length !== 1){
 
                 await moveImageTo(fromIndex, toIndex);
 
@@ -528,7 +562,7 @@ function createImageCard(fileName, index) {
 
     }
 
-    if(e.ctrlKey){
+    if(e.ctrlKey || e.metaKey){
 
         toggleSelection(index);
 

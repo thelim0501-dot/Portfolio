@@ -174,15 +174,15 @@ body{
 
     display:grid;
 
-    grid-template-columns:repeat(auto-fill,minmax(580px,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
 
-    gap:32px;
+    gap:20px;
 
     align-content:start;
 
     overflow-y:visible;
 
-    padding-right:20px;
+    padding-right:0;
 
 }
 
@@ -311,23 +311,13 @@ body{
     RESPONSIVE
 ====================================================== */
 
-@media (max-width:1500px){
+@media (max-width:1280px){
 
     .page-canvas{
 
-    overflow-y:auto;
+        grid-template-columns:repeat(2,minmax(0,1fr));
 
-    display:grid;
-
-    grid-template-columns:repeat(auto-fill,minmax(620px,1fr));
-
-    gap:28px;
-
-    align-content:start;
-
-    padding-right:12px;
-
-}
+    }
 
 }
 
