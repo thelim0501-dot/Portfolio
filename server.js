@@ -357,6 +357,94 @@ function getR2PublicUrl(key){
 
 }
 
+function isSupportedImageUpload(file){
+
+    const originalName = decodeUploadName(file.originalname);
+
+    return ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype) ||
+
+        /\.(jpg|jpeg|png|webp)$/i.test(originalName);
+
+}
+
+function getAvailableImageName(originalName, ignoredName = ""){
+
+    const safeName = path.basename(originalName).trim();
+
+    const extension = path.extname(safeName).toLowerCase();
+
+    const baseName = path.basename(safeName, path.extname(safeName)) || "image";
+
+    if(!/\.(jpg|jpeg|png|webp)$/i.test(extension)){
+
+        throw new Error("Only JPG, PNG, and WebP images are supported.");
+
+    }
+
+    if(safeName === ignoredName || !fs.existsSync(path.join(uploadFolder, safeName))){
+
+        return safeName;
+
+    }
+
+    return `${baseName}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}${extension}`;
+
+}
+
+async function uploadVideoFileToR2(file){
+
+    const originalName = decodeUploadName(file.originalname);
+
+    const extension = path.extname(originalName).toLowerCase();
+
+    const key = `portfolio/videos/${crypto.randomUUID()}${extension}`;
+
+    const uploader = new Upload({
+
+        client: r2Client,
+
+        params: {
+
+            Bucket: r2Config.bucket,
+
+            Key: key,
+
+            Body: fs.createReadStream(file.path),
+
+            ContentType: file.mimetype,
+
+            ContentLength: file.size,
+
+            CacheControl: "public, max-age=31536000, immutable"
+
+        },
+
+        leavePartsOnError: false
+
+    });
+
+    await uploader.done();
+
+    return {
+
+        key,
+
+        url: getR2PublicUrl(key),
+
+        defaultTitle: path.basename(originalName, extension),
+
+        file: originalName,
+
+        size: file.size,
+
+        type: file.mimetype,
+
+        uploadedAt: new Date().toISOString()
+
+    };
+
+}
+
 async function runGit(args) {
 
     return execFileAsync(
@@ -522,15 +610,17 @@ const storage = multer.diskStorage({
 
     filename(req, file, cb) {
 
-    const originalName = Buffer.from(
+    try {
 
-        file.originalname,
+        cb(null, getAvailableImageName(decodeUploadName(file.originalname)));
 
-        "latin1"
+    }
 
-    ).toString("utf8");
+    catch(error){
 
-    cb(null, originalName);
+        cb(error);
+
+    }
 
 }
 
@@ -538,7 +628,55 @@ const storage = multer.diskStorage({
 
 const upload = multer({
 
-    storage
+    storage,
+
+    limits: {
+
+        fileSize: 250 * 1024 * 1024
+
+    },
+
+    fileFilter(req, file, cb){
+
+        const supported = isSupportedImageUpload(file);
+
+        cb(supported ? null : new Error("Only JPG, PNG, and WebP images are supported."), supported);
+
+    }
+
+});
+
+const replacementImageUpload = multer({
+
+    storage: multer.diskStorage({
+
+        destination(req, file, cb){
+
+            cb(null, tempVideoFolder);
+
+        },
+
+        filename(req, file, cb){
+
+            cb(null, `${Date.now()}-${crypto.randomUUID()}.image-upload`);
+
+        }
+
+    }),
+
+    limits: {
+
+        fileSize: 250 * 1024 * 1024
+
+    },
+
+    fileFilter(req, file, cb){
+
+        const supported = isSupportedImageUpload(file);
+
+        cb(supported ? null : new Error("Only JPG, PNG, and WebP images are supported."), supported);
+
+    }
 
 });
 
@@ -670,7 +808,15 @@ function removePosterFileIfUnused(fileName, project){
 // Upload Images
 // ======================================================
 
-app.post("/upload", upload.array("images"), (req, res) => {
+app.post("/upload", (req, res) => {
+
+    upload.array("images")(req, res, error => {
+
+    if(error){
+
+        return res.status(400).json({ success: false, message: error.message });
+
+    }
 
     const files = req.files.map(file => file.filename);
 
@@ -688,19 +834,9 @@ app.post("/upload", upload.array("images"), (req, res) => {
 
     }
 
-    if(projects.length === 0){
+    const project = ensureProject(projects);
 
-        projects.push({
-
-            title: "Portfolio",
-
-            images: []
-
-        });
-
-    }
-
-    projects[0].images.push(...files);
+    project.images.push(...files);
 
     writeProjects(projects);
 
@@ -709,6 +845,176 @@ app.post("/upload", upload.array("images"), (req, res) => {
         success: true,
 
         files
+
+    });
+
+});
+
+});
+
+app.post("/image/:name/replace", (req, res) => {
+
+    replacementImageUpload.single("replacement")(req, res, error => {
+
+        if(error){
+
+            return res.status(400).json({ success: false, message: error.message });
+
+        }
+
+        if(!req.file){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "Select an image to use as the replacement."
+
+            });
+
+        }
+
+        const oldName = req.params.name;
+
+        const oldPath = path.join(uploadFolder, oldName);
+
+        const backupPath = path.join(
+
+            tempVideoFolder,
+
+            `${Date.now()}-${crypto.randomUUID()}.image-backup`
+
+        );
+
+        let newName = "";
+
+        let newPath = "";
+
+        try {
+
+            if(path.basename(oldName) !== oldName || !fs.existsSync(oldPath)){
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message: "The selected image could not be found."
+
+                });
+
+            }
+
+            const projects = readProjects();
+
+            const isReferenced = projects.some(project => {
+
+                return Array.isArray(project?.images) && project.images.includes(oldName);
+
+            });
+
+            if(!isReferenced){
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message: "The selected image is no longer in the portfolio. Refresh and try again."
+
+                });
+
+            }
+
+            newName = getAvailableImageName(
+
+                decodeUploadName(req.file.originalname),
+
+                oldName
+
+            );
+
+            newPath = path.join(uploadFolder, newName);
+
+            fs.copyFileSync(oldPath, backupPath);
+
+            fs.copyFileSync(req.file.path, newPath);
+
+            projects.forEach(project => {
+
+                project.images = Array.isArray(project.images)
+
+                    ? project.images.map(fileName => fileName === oldName ? newName : fileName)
+
+                    : [];
+
+                project.videos = Array.isArray(project.videos) ? project.videos : [];
+
+                project.videos.forEach(video => {
+
+                    if(video.poster === oldName){
+
+                        video.poster = newName;
+
+                    }
+
+                });
+
+                if(project.imageAlts?.[oldName] && oldName !== newName){
+
+                    project.imageAlts[newName] = project.imageAlts[oldName];
+
+                    delete project.imageAlts[oldName];
+
+                }
+
+            });
+
+            createProjectBackup();
+
+            writeProjects(projects);
+
+            if(oldName !== newName){
+
+                fs.rmSync(oldPath, { force: true });
+
+            }
+
+            res.json({ success: true, file: newName });
+
+        }
+
+        catch(replaceError){
+
+            if(newName === oldName && fs.existsSync(backupPath)){
+
+                fs.copyFileSync(backupPath, oldPath);
+
+            }
+
+            else if(newPath){
+
+                fs.rmSync(newPath, { force: true });
+
+            }
+
+            console.error("Image replacement failed:", replaceError.message);
+
+            res.status(500).json({
+
+                success: false,
+
+                message: "Image replacement failed. The original image was kept."
+
+            });
+
+        }
+
+        finally {
+
+            fs.rmSync(req.file.path, { force: true });
+
+            fs.rmSync(backupPath, { force: true });
+
+        }
 
     });
 
@@ -776,59 +1082,21 @@ app.post("/videos/upload", (req, res) => {
 
         }
 
-        const originalName = decodeUploadName(req.file.originalname);
-
-        const extension = path.extname(originalName).toLowerCase();
-
-        const key = `portfolio/videos/${crypto.randomUUID()}${extension}`;
-
         try {
 
-            const uploader = new Upload({
-
-                client: r2Client,
-
-                params: {
-
-                    Bucket: r2Config.bucket,
-
-                    Key: key,
-
-                    Body: fs.createReadStream(req.file.path),
-
-                    ContentType: req.file.mimetype,
-
-                    ContentLength: req.file.size,
-
-                    CacheControl: "public, max-age=31536000, immutable"
-
-                },
-
-                leavePartsOnError: false
-
-            });
-
-            await uploader.done();
+            const uploadedVideo = await uploadVideoFileToR2(req.file);
 
             const video = {
 
                 id: crypto.randomUUID(),
 
-                key,
+                ...uploadedVideo,
 
-                url: getR2PublicUrl(key),
-
-                title: path.basename(originalName, extension),
-
-                file: originalName,
-
-                size: req.file.size,
-
-                type: req.file.mimetype,
-
-                uploadedAt: new Date().toISOString()
+                title: uploadedVideo.defaultTitle
 
             };
+
+            delete video.defaultTitle;
 
             const projects = readProjects();
 
@@ -851,6 +1119,168 @@ app.post("/videos/upload", (req, res) => {
                 success: false,
 
                 message: "R2 영상 업로드에 실패했습니다. 연결 정보를 확인해 주세요."
+
+            });
+
+        }
+
+        finally {
+
+            fs.rm(req.file.path, { force: true }, () => {});
+
+        }
+
+    });
+
+});
+
+app.post("/video/:id/replace", (req, res) => {
+
+    if(!r2Ready){
+
+        return res.status(503).json({
+
+            success: false,
+
+            message: "Cloudflare R2 is not configured."
+
+        });
+
+    }
+
+    videoUpload.single("video")(req, res, async error => {
+
+        if(error){
+
+            return res.status(400).json({ success: false, message: error.message });
+
+        }
+
+        if(!req.file){
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "Select a video to use as the replacement."
+
+            });
+
+        }
+
+        let uploadedVideo = null;
+
+        let replacementCommitted = false;
+
+        try {
+
+            const initialProjects = readProjects();
+
+            const initialProject = ensureProject(initialProjects);
+
+            if(!initialProject.videos.some(video => video.id === req.params.id)){
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message: "The selected video could not be found."
+
+                });
+
+            }
+
+            uploadedVideo = await uploadVideoFileToR2(req.file);
+
+            const projects = readProjects();
+
+            const project = ensureProject(projects);
+
+            const videoIndex = project.videos.findIndex(video => video.id === req.params.id);
+
+            if(videoIndex < 0){
+
+                throw new Error("The video list changed while the replacement was uploading.");
+
+            }
+
+            const previousVideo = project.videos[videoIndex];
+
+            const replacementVideo = {
+
+                ...previousVideo,
+
+                ...uploadedVideo,
+
+                id: previousVideo.id,
+
+                title: previousVideo.title
+
+            };
+
+            delete replacementVideo.defaultTitle;
+
+            project.videos[videoIndex] = replacementVideo;
+
+            createProjectBackup();
+
+            writeProjects(projects);
+
+            replacementCommitted = true;
+
+            try {
+
+                await r2Client.send(new DeleteObjectCommand({
+
+                    Bucket: r2Config.bucket,
+
+                    Key: previousVideo.key
+
+                }));
+
+            }
+
+            catch(cleanupError){
+
+                console.warn("Previous R2 video cleanup failed:", cleanupError.message);
+
+            }
+
+            res.json({ success: true, video: replacementVideo });
+
+        }
+
+        catch(replaceError){
+
+            if(uploadedVideo && !replacementCommitted){
+
+                try {
+
+                    await r2Client.send(new DeleteObjectCommand({
+
+                        Bucket: r2Config.bucket,
+
+                        Key: uploadedVideo.key
+
+                    }));
+
+                }
+
+                catch(cleanupError){
+
+                    console.warn("Replacement R2 cleanup failed:", cleanupError.message);
+
+                }
+
+            }
+
+            console.error("Video replacement failed:", replaceError.message);
+
+            res.status(500).json({
+
+                success: false,
+
+                message: "Video replacement failed. The original video was kept."
 
             });
 
@@ -1412,6 +1842,30 @@ app.post("/rename", (req, res) => {
 
     const { oldName, newName } = req.body;
 
+    if(
+
+        typeof oldName !== "string" ||
+
+        typeof newName !== "string" ||
+
+        path.basename(oldName) !== oldName ||
+
+        path.basename(newName) !== newName ||
+
+        !/\.(jpg|jpeg|png|webp)$/i.test(newName)
+
+    ){
+
+        return res.status(400).json({
+
+            success: false,
+
+            message: "The image file name is invalid."
+
+        });
+
+    }
+
     const oldPath = path.join(uploadFolder, oldName);
 
     const newPath = path.join(uploadFolder, newName);
@@ -1428,55 +1882,97 @@ app.post("/rename", (req, res) => {
 
     }
 
-    fs.renameSync(oldPath, newPath);
+    if(oldName !== newName && fs.existsSync(newPath)){
 
-    const projectFile = path.join(__dirname,"projects.json");
+        return res.status(409).json({
 
-    if(fs.existsSync(projectFile)){
+            success: false,
 
-        const projects = JSON.parse(
+            message: "An image with that file name already exists."
 
-            fs.readFileSync(projectFile,"utf8")
+        });
 
-        );
+    }
 
-        projects.forEach(project=>{
+    const projects = readProjects();
 
-            project.images = project.images.map(image=>
+    projects.forEach(project=>{
 
-                image===oldName ? newName : image
+        project.images = Array.isArray(project.images)
 
-            );
+            ? project.images.map(image => image === oldName ? newName : image)
 
-            if(project.imageAlts?.[oldName]){
+            : [];
 
-                project.imageAlts[newName] = project.imageAlts[oldName];
+        project.videos = Array.isArray(project.videos) ? project.videos : [];
 
-                delete project.imageAlts[oldName];
+        project.videos.forEach(video => {
+
+            if(video.poster === oldName){
+
+                video.poster = newName;
 
             }
 
         });
 
-        fs.writeFileSync(
+        if(project.imageAlts?.[oldName]){
 
-            projectFile,
+            project.imageAlts[newName] = project.imageAlts[oldName];
 
-            JSON.stringify(projects,null,4),
+            delete project.imageAlts[oldName];
 
-            "utf8"
+        }
 
-        );
+    });
+
+    try {
+
+        createProjectBackup();
+
+        if(oldName !== newName){
+
+            fs.renameSync(oldPath, newPath);
+
+        }
+
+        if(projects.length > 0){
+
+            writeProjects(projects);
+
+        }
+
+        res.json({ success: true, file: newName });
 
     }
 
-    res.json({
+    catch(renameError){
 
-        success:true,
+        if(
 
-        file:newName
+            oldName !== newName &&
 
-    });
+            fs.existsSync(newPath) &&
+
+            !fs.existsSync(oldPath)
+
+        ){
+
+            fs.renameSync(newPath, oldPath);
+
+        }
+
+        console.error("Image rename failed:", renameError.message);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "Image rename failed. The original file was kept."
+
+        });
+
+    }
 
 });
 

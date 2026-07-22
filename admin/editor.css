@@ -520,6 +520,30 @@ body{
 
 }
 
+.video-replace-button{
+
+    height:38px;
+
+    border:1px solid #3f4659;
+
+    border-radius:8px;
+
+    background:#1d222e;
+
+    color:#b9c8ee;
+
+    cursor:pointer;
+
+}
+
+.video-replace-button:hover{
+
+    border-color:#91a9e8;
+
+    background:#242c3d;
+
+}
+
 .video-poster-button:hover{
 
     border-color:#6eff95;

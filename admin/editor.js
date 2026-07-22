@@ -14,6 +14,9 @@ const uploadPage = document.getElementById("uploadPage");
 const uploadPosition = document.getElementById("uploadPosition");
 const uploadBtn = document.getElementById("uploadBtn");
 const fileInput = document.getElementById("fileInput");
+const replaceImageBtn = document.getElementById("replaceImageBtn");
+const replaceImageInput = document.getElementById("replaceImageInput");
+const replaceImageGroup = document.getElementById("replaceImageGroup");
 const deleteBtn = document.getElementById("deleteBtn");
 const confirmMove = document.getElementById("confirmMove");
 const movePosition = document.getElementById("movePosition");
@@ -34,6 +37,7 @@ const videoModeBtn = document.getElementById("videoModeBtn");
 const settingsModeBtn = document.getElementById("settingsModeBtn");
 const videoUploadBtn = document.getElementById("videoUploadBtn");
 const videoFileInput = document.getElementById("videoFileInput");
+const replaceVideoInput = document.getElementById("replaceVideoInput");
 const videoPosterInput = document.getElementById("videoPosterInput");
 const videoStatus = document.getElementById("videoStatus");
 const videoCanvas = document.getElementById("videoCanvas");
@@ -62,6 +66,10 @@ let videos = [];
 let videoSortable = null;
 
 let posterTargetVideoId = null;
+
+let replaceVideoTargetId = null;
+
+let replaceImageTargetName = null;
 
 let editorMode = "images";
 
@@ -155,6 +163,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     videoFileInput.addEventListener("change", uploadVideos);
 
+    replaceVideoInput.addEventListener("change", replaceVideoFile);
+
     videoPosterInput.addEventListener("change", uploadVideoPoster);
 
     publishBtn.addEventListener("click", publishProjects);
@@ -186,6 +196,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     moveFirstBtn.addEventListener("click", moveToFirstPage);
 
     renameBtn.addEventListener("click", renameImage);
+
+    replaceImageBtn.addEventListener("click", selectReplacementImage);
+
+    replaceImageInput.addEventListener("change", replaceSelectedImage);
 
     imageAltInput.addEventListener("input", () => {
 
@@ -762,6 +776,8 @@ const deleteBtn =
 
     imageAltGroup.style.display = "none";
 
+    replaceImageGroup.style.display = "none";
+
     noSelection.style.display = "none";
     propertyContent.style.display = "block";
 
@@ -832,6 +848,8 @@ if(selectedPage >= 0){
             images[selectedIndex].replace(/\.[^/.]+$/, "");
 
         imageAltGroup.style.display = "";
+
+        replaceImageGroup.style.display = "";
 
         imageAltInput.value = imageAlts[images[selectedIndex]] || "";
 
@@ -2012,6 +2030,16 @@ function renderVideos(){
 
         posterButton.addEventListener("click", () => selectVideoPoster(video));
 
+        const replaceButton = document.createElement("button");
+
+        replaceButton.className = "video-replace-button";
+
+        replaceButton.type = "button";
+
+        replaceButton.textContent = "Replace Video";
+
+        replaceButton.addEventListener("click", () => selectReplacementVideo(video));
+
         const deleteButton = document.createElement("button");
 
         deleteButton.className = "video-delete-button";
@@ -2022,7 +2050,21 @@ function renderVideos(){
 
         deleteButton.addEventListener("click", () => deleteVideo(video));
 
-        body.append(indexLabel, titleInput, meta, posterButton, deleteButton);
+        body.append(
+
+            indexLabel,
+
+            titleInput,
+
+            meta,
+
+            replaceButton,
+
+            posterButton,
+
+            deleteButton
+
+        );
 
         card.append(preview, body);
 
@@ -2067,6 +2109,78 @@ function selectVideoPoster(video){
     videoPosterInput.value = "";
 
     videoPosterInput.click();
+
+}
+
+function selectReplacementVideo(video){
+
+    replaceVideoTargetId = video.id;
+
+    replaceVideoInput.value = "";
+
+    replaceVideoInput.click();
+
+}
+
+async function replaceVideoFile(){
+
+    const file = replaceVideoInput.files[0];
+
+    const videoIndex = videos.findIndex(video => video.id === replaceVideoTargetId);
+
+    if(!file || videoIndex < 0){
+
+        replaceVideoTargetId = null;
+
+        return;
+
+    }
+
+    setVideoStatus(`Replacing video · ${file.name}`);
+
+    try {
+
+        const formData = new FormData();
+
+        formData.append("video", file);
+
+        const response = await fetch(
+
+            `/video/${encodeURIComponent(replaceVideoTargetId)}/replace`,
+
+            { method: "POST", body: formData }
+
+        );
+
+        const result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "Video replacement failed.");
+
+        }
+
+        videos[videoIndex] = result.video;
+
+        renderVideos();
+
+        setVideoStatus("Video replaced. Order and poster were preserved.", "ready");
+
+    }
+
+    catch(error){
+
+        setVideoStatus(error.message || "Video replacement failed.", "error");
+
+    }
+
+    finally {
+
+        replaceVideoTargetId = null;
+
+        replaceVideoInput.value = "";
+
+    }
 
 }
 
@@ -2593,9 +2707,21 @@ async function renameImage(){
 
     }
 
-    saveState();
+    undoStack = [];
 
-    images[selectedIndex] = newName;
+    redoStack = [];
+
+    images = images.map(fileName => fileName === oldName ? newName : fileName);
+
+    videos.forEach(video => {
+
+        if(video.poster === oldName){
+
+            video.poster = newName;
+
+        }
+
+    });
 
     if(imageAlts[oldName]){
 
@@ -2663,6 +2789,114 @@ function refreshUploadPageList(){
 // Upload Images
 // ======================================================
 
+function selectReplacementImage(){
+
+    if(selectedImages.length !== 1 || selectedIndex < 0){
+
+        return;
+
+    }
+
+    replaceImageTargetName = images[selectedIndex];
+
+    replaceImageInput.value = "";
+
+    replaceImageInput.click();
+
+}
+
+async function replaceSelectedImage(){
+
+    const file = replaceImageInput.files[0];
+
+    const oldName = replaceImageTargetName;
+
+    if(!file || !oldName){
+
+        replaceImageTargetName = null;
+
+        return;
+
+    }
+
+    replaceImageBtn.disabled = true;
+
+    try {
+
+        const formData = new FormData();
+
+        formData.append("replacement", file);
+
+        const response = await fetch(
+
+            `/image/${encodeURIComponent(oldName)}/replace`,
+
+            { method: "POST", body: formData }
+
+        );
+
+        const result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "Image replacement failed.");
+
+        }
+
+        undoStack = [];
+
+        redoStack = [];
+
+        images = images.map(fileName => {
+
+            return fileName === oldName ? result.file : fileName;
+
+        });
+
+        videos.forEach(video => {
+
+            if(video.poster === oldName){
+
+                video.poster = result.file;
+
+            }
+
+        });
+
+        if(imageAlts[oldName] && oldName !== result.file){
+
+            imageAlts[result.file] = imageAlts[oldName];
+
+            delete imageAlts[oldName];
+
+        }
+
+        renderPages();
+
+        renderVideos();
+
+        requestAnimationFrame(() => selectImage(selectedIndex));
+
+    }
+
+    catch(error){
+
+        alert(error.message || "Image replacement failed.");
+
+    }
+
+    finally {
+
+        replaceImageTargetName = null;
+
+        replaceImageInput.value = "";
+
+        replaceImageBtn.disabled = false;
+
+    }
+
+}
+
 async function uploadImages(){
 
     if(fileInput.files.length === 0){
@@ -2679,17 +2913,33 @@ async function uploadImages(){
 
     }
 
-    const response = await fetch("/upload",{
+    let result;
 
-        method:"POST",
+    try {
 
-        body:formData
+        const response = await fetch("/upload",{
 
-    });
+            method:"POST",
 
-    const result = await response.json();
+            body:formData
 
-    if(!result.success){
+        });
+
+        result = await response.json();
+
+        if(!response.ok || !result.success){
+
+            throw new Error(result.message || "Image upload failed.");
+
+        }
+
+    }
+
+    catch(error){
+
+        alert(error.message || "Image upload failed.");
+
+        fileInput.value = "";
 
         return;
 

@@ -87,7 +87,13 @@
         type="file"
         id="fileInput"
         multiple
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        style="display:none;">
+
+    <input
+        type="file"
+        id="replaceImageInput"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
         style="display:none;">
 
     <button id="videoUploadBtn" class="video-tool" type="button" hidden>
@@ -100,6 +106,12 @@
         type="file"
         id="videoFileInput"
         multiple
+        accept="video/mp4,video/webm,.mp4,.webm"
+        style="display:none;">
+
+    <input
+        type="file"
+        id="replaceVideoInput"
         accept="video/mp4,video/webm,.mp4,.webm"
         style="display:none;">
 
@@ -457,6 +469,16 @@
                     placeholder="Describe the image for screen readers."></textarea>
 
                 <span class="property-helper">This text is not displayed on the portfolio.</span>
+
+            </div>
+
+            <div class="property-group" id="replaceImageGroup">
+
+                <button id="replaceImageBtn" type="button">
+
+                    Replace Image
+
+                </button>
 
             </div>
 
