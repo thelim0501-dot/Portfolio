@@ -46,6 +46,8 @@ class PortfolioApp {
         this.thumbnailMap = {};
         this.viewerMap = {};
         this.preloadedViewerImages = new Set();
+        this.categoryVideoPreview = null;
+        this.categoryVideoPreviewSrc = "";
         this.currentPage = 0;
         this.currentImageIndex = 0;
         this.currentVideoIndex = 0;
@@ -520,6 +522,8 @@ class PortfolioApp {
         }
 
         preview.replaceChildren();
+        this.categoryVideoPreview = null;
+        this.categoryVideoPreviewSrc = "";
         tab.classList.toggle("has-preview", Boolean(previewData));
         tab.onpointerenter = null;
         tab.onpointerleave = null;
@@ -564,15 +568,11 @@ class PortfolioApp {
 
         const startPreview = () => {
 
+            this.prepareCategoryVideoPreview();
+
             if(!window.matchMedia("(hover: hover) and (pointer: fine)").matches){
 
                 return;
-
-            }
-
-            if(!video.src){
-
-                video.src = previewData.src;
 
             }
 
@@ -598,12 +598,41 @@ class PortfolioApp {
 
         });
 
+        video.addEventListener("loadedmetadata", () => {
+
+            if(Number.isFinite(video.duration) && video.duration > 0){
+
+                video.currentTime = Math.min(0.1, video.duration / 2);
+
+            }
+
+        }, { once: true });
+
+        this.categoryVideoPreview = video;
+        this.categoryVideoPreviewSrc = previewData.src;
+
         tab.onpointerenter = startPreview;
         tab.onpointerleave = stopPreview;
         tab.onfocus = startPreview;
         tab.onblur = stopPreview;
 
         preview.appendChild(video);
+
+    }
+
+    prepareCategoryVideoPreview() {
+
+        const video = this.categoryVideoPreview;
+
+        if(!video || !this.categoryVideoPreviewSrc || video.src){
+
+            return;
+
+        }
+
+        video.preload = "metadata";
+        video.src = this.categoryVideoPreviewSrc;
+        video.load();
 
     }
 
@@ -1682,6 +1711,12 @@ class PortfolioApp {
         this.nextBtn.disabled = this.currentPage === this.pages.length - 1;
 
         const activePage = this.pages[this.currentPage];
+
+        if(this.currentPage >= 1){
+
+            this.prepareCategoryVideoPreview();
+
+        }
 
         this.preloadPageImages(activePage);
 
