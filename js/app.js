@@ -21,6 +21,7 @@ class PortfolioApp {
         this.viewerPrev = document.getElementById("viewerPrev");
         this.viewerNext = document.getElementById("viewerNext");
         this.viewerCount = document.getElementById("viewerCount");
+        this.viewerSwipeHint = document.getElementById("viewerSwipeHint");
         this.viewerError = document.getElementById("viewerError");
         this.closeViewer = document.getElementById("closeViewer");
 
@@ -1776,6 +1777,8 @@ class PortfolioApp {
         this.preloadViewerImage(images[(index - 1 + images.length) % images.length]);
 
         this.viewerCount.textContent = `${index + 1} / ${images.length}`;
+
+        this.viewerSwipeHint.hidden = images.length <= 1;
 
         this.viewer.classList.add("show");
 
