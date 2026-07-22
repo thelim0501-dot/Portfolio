@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "build:public": "node scripts/build-public.js",
     "test": "node --check server.js && node --check admin/editor.js && node --check js/app.js"
   },
   "keywords": [],
