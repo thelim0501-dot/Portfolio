@@ -187,6 +187,30 @@
 
             <article class="settings-card">
 
+                <div class="settings-card-heading"><span>PUBLIC SITE</span></div>
+
+                <div class="settings-status-row">
+
+                    <span>Deployment</span>
+
+                    <strong id="settingsDeployState" data-state="loading">Checking...</strong>
+
+                </div>
+
+                <div class="settings-status-row">
+
+                    <span>Last successful deploy</span>
+
+                    <strong id="settingsDeployTime">--</strong>
+
+                </div>
+
+                <a id="settingsPublicSite" class="settings-public-link" href="#" target="_blank" rel="noopener">Open Public Portfolio</a>
+
+            </article>
+
+            <article class="settings-card">
+
                 <div class="settings-card-heading"><span>CONNECTIONS</span></div>
 
                 <div class="settings-status-row">
@@ -418,6 +442,21 @@
                     Delete
 
                 </button>
+
+            </div>
+
+            <div class="property-group" id="imageAltGroup">
+
+                <label for="imageAltInput">Image Description (Alt Text)</label>
+
+                <textarea
+                    id="imageAltInput"
+                    class="property-input"
+                    maxlength="300"
+                    rows="4"
+                    placeholder="Describe the image for screen readers."></textarea>
+
+                <span class="property-helper">This text is not displayed on the portfolio.</span>
 
             </div>
 

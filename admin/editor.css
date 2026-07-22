@@ -760,6 +760,39 @@ body{
 
 }
 
+.settings-public-link{
+
+    min-height:44px;
+
+    margin-top:16px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    border:1px solid #333;
+
+    border-radius:9px;
+
+    color:#ddd;
+
+    font-size:12px;
+
+    text-decoration:none;
+
+}
+
+.settings-public-link:hover,
+.settings-public-link:focus-visible{
+
+    border-color:#6eff95;
+
+    color:#6eff95;
+
+}
+
 .settings-data-state{
 
     margin-bottom:16px;
@@ -1196,6 +1229,50 @@ body{
 .page-header:active{
 
     cursor:grabbing;
+
+}
+
+.property-input{
+
+    width:100%;
+
+    padding:12px;
+
+    border:1px solid #333;
+
+    border-radius:9px;
+
+    background:#242424;
+
+    color:#fff;
+
+    font:inherit;
+
+    line-height:1.5;
+
+    outline:none;
+
+    resize:vertical;
+
+}
+
+.property-input:focus{
+
+    border-color:#6eff95;
+
+}
+
+.property-helper{
+
+    display:block;
+
+    margin-top:8px;
+
+    color:#6f6f6f;
+
+    font-size:11px;
+
+    line-height:1.5;
 
 }
 

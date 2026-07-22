@@ -25,6 +25,9 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Install build dependencies
+        run: npm ci
+
       - name: Build public portfolio
         run: node scripts/build-public.js
 

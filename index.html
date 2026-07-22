@@ -4,8 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interior visualization and film portfolio by Hyeongeol Lim.">
+    <meta name="theme-color" content="#080808">
     <title>Portfolio | Hyeongeol Lim</title>
 
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -139,7 +142,7 @@
 
 <div id="navigation">
 
-    <button id="prevBtn">&#10094;</button>
+    <button id="prevBtn" aria-label="Previous page">&#10094;</button>
 
     <div id="pageNumber">
 
@@ -147,7 +150,7 @@
 
     </div>
 
-    <button id="nextBtn">&#10095;</button>
+    <button id="nextBtn" aria-label="Next page">&#10095;</button>
 
 </div>
 
@@ -157,15 +160,17 @@
         Image Viewer
 =========================== -->
 
-<div id="viewer">
+<div id="viewer" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
 
-    <button id="closeViewer">×</button>
+    <button id="closeViewer" aria-label="Close image">&times;</button>
 
-    <button id="viewerPrev">&#10094;</button>
+    <button id="viewerPrev" aria-label="Previous image">&#10094;</button>
 
     <img id="viewerImage" src="" alt="">
 
-    <button id="viewerNext">&#10095;</button>
+    <div id="viewerError" role="status">IMAGE UNAVAILABLE</div>
+
+    <button id="viewerNext" aria-label="Next image">&#10095;</button>
 
     <div id="viewerCount">1 / 4</div>
 
@@ -175,9 +180,9 @@
         Video Viewer
 =========================== -->
 
-<div id="videoViewer" aria-hidden="true">
+<div id="videoViewer" role="dialog" aria-modal="true" aria-label="Film player" aria-hidden="true">
 
-    <button id="closeVideoViewer" aria-label="Close video">×</button>
+    <button id="closeVideoViewer" aria-label="Close video">&times;</button>
 
     <button id="videoViewerPrev" aria-label="Previous film">&#10094;</button>
 
@@ -186,6 +191,8 @@
         <span id="videoViewerLabel">FILM 01</span>
 
         <video id="videoViewerPlayer" controls playsinline preload="metadata"></video>
+
+        <div id="videoViewerError" role="status">FILM UNAVAILABLE</div>
 
     </div>
 

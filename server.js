@@ -85,7 +85,7 @@ function ensureProject(projects){
 
     if(projects.length === 0){
 
-        projects.push({ title: "Portfolio", images: [], videos: [] });
+        projects.push({ title: "Portfolio", images: [], videos: [], imageAlts: {} });
 
     }
 
@@ -100,6 +100,16 @@ function ensureProject(projects){
         ? projects[0].videos
 
         : [];
+
+    projects[0].imageAlts = projects[0].imageAlts &&
+
+        typeof projects[0].imageAlts === "object" &&
+
+        !Array.isArray(projects[0].imageAlts)
+
+        ? projects[0].imageAlts
+
+        : {};
 
     return projects[0];
 
@@ -202,6 +212,34 @@ function validateProjects(projects){
     })){
 
         errors.push("videos에 잘못된 영상 정보가 포함되어 있습니다.");
+
+    }
+
+    if(
+
+        project?.imageAlts != null &&
+
+        (
+
+            typeof project.imageAlts !== "object" ||
+
+            Array.isArray(project.imageAlts) ||
+
+            Object.entries(project.imageAlts).some(([fileName, description]) => {
+
+                return path.basename(fileName) !== fileName ||
+
+                    typeof description !== "string" ||
+
+                    description.length > 300;
+
+            })
+
+        )
+
+    ){
+
+        errors.push("imageAlts에 잘못된 이미지 설명이 포함되어 있습니다.");
 
     }
 
@@ -412,6 +450,24 @@ function getPublishErrorMessage(error) {
     }
 
     return "Publish에 실패했습니다. Git 연결 상태를 확인하세요.";
+
+}
+
+function parseGitHubRepository(remote){
+
+    const match = String(remote || "").trim().match(
+
+        /github\.com(?::|\/)([^/]+)\/([^/]+?)(?:\.git)?$/i
+
+    );
+
+    if(!match){
+
+        return null;
+
+    }
+
+    return { owner: match[1], repository: match[2] };
 
 }
 
@@ -1134,7 +1190,45 @@ app.post("/save", (req, res) => {
 
     if(Array.isArray(req.body.videos)){
 
+        const incomingVideoIds = new Set(
+
+            req.body.videos.map(video => video?.id).filter(Boolean)
+
+        );
+
+        const missingCurrentVideo = project.videos.find(video => {
+
+            return video?.id && !incomingVideoIds.has(video.id);
+
+        });
+
+        if(missingCurrentVideo){
+
+            return res.status(409).json({
+
+                success: false,
+
+                message: "The video list changed in another admin session. Refresh before saving again."
+
+            });
+
+        }
+
         project.videos = req.body.videos;
+
+    }
+
+    if(
+
+        req.body.imageAlts &&
+
+        typeof req.body.imageAlts === "object" &&
+
+        !Array.isArray(req.body.imageAlts)
+
+    ){
+
+        project.imageAlts = req.body.imageAlts;
 
     }
 
@@ -1354,6 +1448,14 @@ app.post("/rename", (req, res) => {
 
             );
 
+            if(project.imageAlts?.[oldName]){
+
+                project.imageAlts[newName] = project.imageAlts[oldName];
+
+                delete project.imageAlts[oldName];
+
+            }
+
         });
 
         fs.writeFileSync(
@@ -1419,6 +1521,12 @@ if (fs.existsSync(projectFile)) {
             image => image !== fileName
 
         );
+
+        if(projects[0].imageAlts){
+
+            delete projects[0].imageAlts[fileName];
+
+        }
 
         fs.writeFileSync(
 
@@ -1507,6 +1615,102 @@ app.get("/publish/status", async (req, res) => {
             ready: false,
 
             message: getPublishErrorMessage(error)
+
+        });
+
+    }
+
+});
+
+app.get("/deployment/status", async (req, res) => {
+
+    try {
+
+        const { stdout: remote } = await runGit([
+
+            "remote",
+
+            "get-url",
+
+            "origin"
+
+        ]);
+
+        const repository = parseGitHubRepository(remote);
+
+        if(!repository){
+
+            return res.status(400).json({
+
+                ready: false,
+
+                message: "GitHub repository could not be identified."
+
+            });
+
+        }
+
+        const { owner, repository: repositoryName } = repository;
+
+        const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/actions/workflows/deploy-pages.yml/runs?per_page=10`;
+
+        const response = await fetch(apiUrl, {
+
+            headers: {
+
+                "Accept": "application/vnd.github+json",
+
+                "User-Agent": "PortfolioBuilder"
+
+            },
+
+            signal: AbortSignal.timeout(7000)
+
+        });
+
+        if(!response.ok){
+
+            throw new Error(`GitHub API returned ${response.status}.`);
+
+        }
+
+        const data = await response.json();
+
+        const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+
+        const latestRun = runs[0] || null;
+
+        const latestSuccess = runs.find(run => run.conclusion === "success") || null;
+
+        const publicUrl = `https://${owner}.github.io/${repositoryName}/`;
+
+        res.json({
+
+            ready: true,
+
+            publicUrl,
+
+            state: latestRun?.status || "unknown",
+
+            conclusion: latestRun?.conclusion || null,
+
+            runUrl: latestRun?.html_url || null,
+
+            updatedAt: latestRun?.updated_at || null,
+
+            lastSuccessAt: latestSuccess?.updated_at || null
+
+        });
+
+    }
+
+    catch(error){
+
+        res.status(503).json({
+
+            ready: false,
+
+            message: error.message || "Deployment status is unavailable."
 
         });
 

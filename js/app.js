@@ -7,17 +7,21 @@ class PortfolioApp {
 
     constructor() {
 
+        this.app = document.getElementById("app");
+
         this.portfolioContainer = document.getElementById("portfolioPages");
 
         this.prevBtn = document.getElementById("prevBtn");
         this.nextBtn = document.getElementById("nextBtn");
         this.pageNumber = document.getElementById("pageNumber");
+        this.navigation = document.getElementById("navigation");
 
         this.viewer = document.getElementById("viewer");
         this.viewerImage = document.getElementById("viewerImage");
         this.viewerPrev = document.getElementById("viewerPrev");
         this.viewerNext = document.getElementById("viewerNext");
         this.viewerCount = document.getElementById("viewerCount");
+        this.viewerError = document.getElementById("viewerError");
         this.closeViewer = document.getElementById("closeViewer");
 
         this.videoViewer = document.getElementById("videoViewer");
@@ -26,6 +30,7 @@ class PortfolioApp {
         this.videoViewerCount = document.getElementById("videoViewerCount");
         this.videoViewerPrev = document.getElementById("videoViewerPrev");
         this.videoViewerNext = document.getElementById("videoViewerNext");
+        this.videoViewerError = document.getElementById("videoViewerError");
         this.closeVideoViewer = document.getElementById("closeVideoViewer");
 
         this.visualizationTab = document.getElementById("visualizationTab");
@@ -35,10 +40,22 @@ class PortfolioApp {
 
         this.pages = [];
         this.projects = [];
+        this.thumbnailMap = {};
         this.currentPage = 0;
         this.currentImageIndex = 0;
         this.currentVideoIndex = 0;
         this.activeMediaType = null;
+        this.pageTouchStart = null;
+        this.imageTouchStart = null;
+        this.imageZoom = 1;
+        this.imageTranslateX = 0;
+        this.imageTranslateY = 0;
+        this.pinchStartDistance = 0;
+        this.pinchStartZoom = 1;
+        this.lastImageTap = 0;
+        this.videoTouchStart = null;
+        this.suppressNextCardClick = false;
+        this.lastFocusedElement = null;
 
         this.initialize();
 
@@ -54,6 +71,16 @@ class PortfolioApp {
         const loaderSelected = document.getElementById("loaderSelected");
         const loader = document.getElementById("loader");
         const app = document.getElementById("app");
+
+        if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+
+            loader.classList.add("hide");
+
+            app.classList.add("show");
+
+            return;
+
+        }
 
         setTimeout(() => {
 
@@ -145,6 +172,108 @@ class PortfolioApp {
 
         });
 
+        this.app.addEventListener(
+
+            "touchstart",
+
+            event => this.handlePageTouchStart(event),
+
+            { passive: true }
+
+        );
+
+        this.app.addEventListener(
+
+            "touchend",
+
+            event => this.handlePageTouchEnd(event),
+
+            { passive: true }
+
+        );
+
+        this.viewer.addEventListener(
+
+            "touchstart",
+
+            event => this.handleImageTouchStart(event),
+
+            { passive: false }
+
+        );
+
+        this.viewer.addEventListener(
+
+            "touchmove",
+
+            event => this.handleImageTouchMove(event),
+
+            { passive: false }
+
+        );
+
+        this.viewer.addEventListener(
+
+            "touchend",
+
+            event => this.handleImageTouchEnd(event),
+
+            { passive: false }
+
+        );
+
+        this.viewerImage.addEventListener("dblclick", event => {
+
+            event.preventDefault();
+
+            this.toggleImageZoom();
+
+        });
+
+        this.videoViewer.addEventListener(
+
+            "touchstart",
+
+            event => this.handleVideoTouchStart(event),
+
+            { passive: true }
+
+        );
+
+        this.viewerImage.addEventListener("load", () => {
+
+            this.viewer.classList.remove("media-error");
+
+        });
+
+        this.viewerImage.addEventListener("error", () => {
+
+            this.viewer.classList.add("media-error");
+
+        });
+
+        this.videoViewerPlayer.addEventListener("loadeddata", () => {
+
+            this.videoViewer.classList.remove("media-error");
+
+        });
+
+        this.videoViewerPlayer.addEventListener("error", () => {
+
+            this.videoViewer.classList.add("media-error");
+
+        });
+
+        this.videoViewer.addEventListener(
+
+            "touchend",
+
+            event => this.handleVideoTouchEnd(event),
+
+            { passive: true }
+
+        );
+
     }
 
     async loadProjects() {
@@ -173,6 +302,36 @@ class PortfolioApp {
 
         }
 
+        try {
+
+            const thumbnailResponse = await fetch(
+
+                "thumbnail-map.json",
+
+                { cache: "no-store" }
+
+            );
+
+            if(thumbnailResponse.ok){
+
+                const thumbnailMap = await thumbnailResponse.json();
+
+                this.thumbnailMap = thumbnailMap && typeof thumbnailMap === "object"
+
+                    ? thumbnailMap
+
+                    : {};
+
+            }
+
+        }
+
+        catch(error){
+
+            this.thumbnailMap = {};
+
+        }
+
         this.createPortfolioPages();
 
         this.updatePage();
@@ -189,6 +348,12 @@ class PortfolioApp {
 
             images: Array.isArray(project.images) ? project.images.filter(Boolean) : [],
 
+            imageAlts: project.imageAlts && typeof project.imageAlts === "object"
+
+                ? project.imageAlts
+
+                : {},
+
             videos: Array.isArray(project.videos)
 
                 ? project.videos.filter(video => video && video.url)
@@ -196,6 +361,20 @@ class PortfolioApp {
                 : []
 
         };
+
+    }
+
+    getThumbnailUrl(fileName) {
+
+        return this.thumbnailMap[fileName] || `images/${encodeURIComponent(fileName)}`;
+
+    }
+
+    getImageAlt(fileName) {
+
+        return this.getProject().imageAlts[fileName] ||
+
+            fileName.replace(/\.[^/.]+$/, "");
 
     }
 
@@ -297,19 +476,63 @@ class PortfolioApp {
 
                 const imageIndex = pageIndex * 4 + itemIndex;
 
-                const box = document.createElement("div");
+                const box = document.createElement("button");
 
-                box.className = "image-box";
+                box.className = "image-box is-loading";
+
+                box.type = "button";
+
+                box.setAttribute(
+
+                    "aria-label",
+
+                    `${this.getImageAlt(fileName)} 크게 보기`
+
+                );
 
                 const image = document.createElement("img");
 
-                image.src = `images/${fileName}`;
+                image.alt = this.getImageAlt(fileName);
 
-                image.alt = fileName.replace(/\.[^/.]+$/, "");
+                image.loading = pageIndex === 0 ? "eager" : "lazy";
 
-                image.loading = "lazy";
+                image.decoding = "async";
 
-                box.addEventListener("click", () => this.openImage(imageIndex));
+                if(imageIndex === 0){
+
+                    image.fetchPriority = "high";
+
+                }
+
+                image.addEventListener("load", () => {
+
+                    box.classList.remove("is-loading", "is-error");
+
+                    box.classList.add("is-loaded");
+
+                });
+
+                image.addEventListener("error", () => {
+
+                    box.classList.remove("is-loading", "is-loaded");
+
+                    box.classList.add("is-error");
+
+                });
+
+                image.src = this.getThumbnailUrl(fileName);
+
+                box.addEventListener("click", () => {
+
+                    if(this.consumeSuppressedCardClick()){
+
+                        return;
+
+                    }
+
+                    this.openImage(imageIndex);
+
+                });
 
                 const overlay = document.createElement("div");
 
@@ -325,9 +548,15 @@ class PortfolioApp {
 
                 arrow.textContent = "↗";
 
+                const errorLabel = document.createElement("span");
+
+                errorLabel.className = "image-error-label";
+
+                errorLabel.textContent = "IMAGE UNAVAILABLE";
+
                 overlay.append(viewLabel, arrow);
 
-                box.append(image, overlay);
+                box.append(image, errorLabel, overlay);
 
                 gallery.appendChild(box);
 
@@ -399,7 +628,17 @@ class PortfolioApp {
 
                 card.setAttribute("aria-label", `${filmNumber} 재생`);
 
-                card.addEventListener("click", () => this.openVideo(videoIndex));
+                card.addEventListener("click", () => {
+
+                    if(this.consumeSuppressedCardClick()){
+
+                        return;
+
+                    }
+
+                    this.openVideo(videoIndex);
+
+                });
 
                 const media = document.createElement("span");
 
@@ -409,9 +648,19 @@ class PortfolioApp {
 
                     const poster = document.createElement("img");
 
-                    poster.src = `images/${encodeURIComponent(video.poster)}`;
+                    poster.src = this.getThumbnailUrl(video.poster);
 
                     poster.alt = "";
+
+                    poster.loading = "lazy";
+
+                    poster.decoding = "async";
+
+                    poster.addEventListener("error", () => {
+
+                        media.classList.add("media-error");
+
+                    });
 
                     media.appendChild(poster);
 
@@ -442,6 +691,12 @@ class PortfolioApp {
                         }
 
                     }, { once: true });
+
+                    preview.addEventListener("error", () => {
+
+                        media.classList.add("media-error");
+
+                    });
 
                     media.appendChild(preview);
 
@@ -504,6 +759,520 @@ class PortfolioApp {
         section.appendChild(empty);
 
         this.portfolioContainer.appendChild(section);
+
+    }
+
+    consumeSuppressedCardClick() {
+
+        if(!this.suppressNextCardClick){
+
+            return false;
+
+        }
+
+        this.suppressNextCardClick = false;
+
+        return true;
+
+    }
+
+    handlePageTouchStart(event) {
+
+        if(
+
+            event.touches.length !== 1 ||
+
+            this.viewer.classList.contains("show") ||
+
+            this.videoViewer.classList.contains("show")
+
+        ){
+
+            return;
+
+        }
+
+        const target = event.target instanceof Element ? event.target : null;
+
+        if(target?.closest("input, select, textarea, video, .media-tab")){
+
+            return;
+
+        }
+
+        const touch = event.touches[0];
+
+        this.pageTouchStart = {
+
+            x: touch.clientX,
+
+            y: touch.clientY,
+
+            time: Date.now(),
+
+            startedOnCard: Boolean(target?.closest(".image-box, .film-card"))
+
+        };
+
+    }
+
+    handlePageTouchEnd(event) {
+
+        if(!this.pageTouchStart || event.changedTouches.length === 0){
+
+            this.pageTouchStart = null;
+
+            return;
+
+        }
+
+        const touch = event.changedTouches[0];
+
+        const deltaX = touch.clientX - this.pageTouchStart.x;
+
+        const deltaY = touch.clientY - this.pageTouchStart.y;
+
+        const duration = Date.now() - this.pageTouchStart.time;
+
+        const isHorizontalSwipe =
+
+            duration < 800 &&
+
+            Math.abs(deltaX) >= 55 &&
+
+            Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+        if(isHorizontalSwipe){
+
+            if(this.pageTouchStart.startedOnCard){
+
+                this.suppressNextCardClick = true;
+
+                setTimeout(() => {
+
+                    this.suppressNextCardClick = false;
+
+                }, 450);
+
+            }
+
+            if(deltaX < 0){
+
+                this.nextPage();
+
+            }
+
+            else {
+
+                this.previousPage();
+
+            }
+
+        }
+
+        this.pageTouchStart = null;
+
+    }
+
+    getTouchDistance(firstTouch, secondTouch) {
+
+        return Math.hypot(
+
+            secondTouch.clientX - firstTouch.clientX,
+
+            secondTouch.clientY - firstTouch.clientY
+
+        );
+
+    }
+
+    handleImageTouchStart(event) {
+
+        const target = event.target instanceof Element ? event.target : null;
+
+        if(target?.closest("button")){
+
+            return;
+
+        }
+
+        if(event.touches.length === 2){
+
+            event.preventDefault();
+
+            this.pinchStartDistance = this.getTouchDistance(
+
+                event.touches[0],
+
+                event.touches[1]
+
+            );
+
+            this.pinchStartZoom = this.imageZoom;
+
+            return;
+
+        }
+
+        if(event.touches.length === 1){
+
+            const touch = event.touches[0];
+
+            this.imageTouchStart = {
+
+                x: touch.clientX,
+
+                y: touch.clientY,
+
+                time: Date.now(),
+
+                translateX: this.imageTranslateX,
+
+                translateY: this.imageTranslateY
+
+            };
+
+        }
+
+    }
+
+    handleImageTouchMove(event) {
+
+        if(event.touches.length === 2 && this.pinchStartDistance > 0){
+
+            event.preventDefault();
+
+            const distance = this.getTouchDistance(
+
+                event.touches[0],
+
+                event.touches[1]
+
+            );
+
+            this.imageZoom = Math.min(
+
+                4,
+
+                Math.max(1, this.pinchStartZoom * distance / this.pinchStartDistance)
+
+            );
+
+            if(this.imageZoom === 1){
+
+                this.imageTranslateX = 0;
+
+                this.imageTranslateY = 0;
+
+            }
+
+            this.constrainImagePan();
+
+            this.applyImageTransform(false);
+
+            return;
+
+        }
+
+        if(
+
+            event.touches.length === 1 &&
+
+            this.imageTouchStart &&
+
+            this.imageZoom > 1
+
+        ){
+
+            event.preventDefault();
+
+            const touch = event.touches[0];
+
+            this.imageTranslateX =
+
+                this.imageTouchStart.translateX + touch.clientX - this.imageTouchStart.x;
+
+            this.imageTranslateY =
+
+                this.imageTouchStart.translateY + touch.clientY - this.imageTouchStart.y;
+
+            this.constrainImagePan();
+
+            this.applyImageTransform(false);
+
+        }
+
+    }
+
+    handleImageTouchEnd(event) {
+
+        if(this.pinchStartDistance > 0){
+
+            if(event.touches.length < 2){
+
+                this.pinchStartDistance = 0;
+
+                this.pinchStartZoom = this.imageZoom;
+
+            }
+
+            if(event.touches.length > 0){
+
+                const touch = event.touches[0];
+
+                this.imageTouchStart = {
+
+                    x: touch.clientX,
+
+                    y: touch.clientY,
+
+                    time: Date.now(),
+
+                    translateX: this.imageTranslateX,
+
+                    translateY: this.imageTranslateY
+
+                };
+
+            }
+
+            return;
+
+        }
+
+        if(!this.imageTouchStart || event.changedTouches.length === 0){
+
+            this.imageTouchStart = null;
+
+            return;
+
+        }
+
+        const touch = event.changedTouches[0];
+
+        const deltaX = touch.clientX - this.imageTouchStart.x;
+
+        const deltaY = touch.clientY - this.imageTouchStart.y;
+
+        const duration = Date.now() - this.imageTouchStart.time;
+
+        if(
+
+            this.imageZoom <= 1.01 &&
+
+            duration < 800 &&
+
+            Math.abs(deltaX) >= 50 &&
+
+            Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+
+        ){
+
+            this.lastImageTap = 0;
+
+            if(deltaX < 0){
+
+                this.nextImage();
+
+            }
+
+            else {
+
+                this.previousImage();
+
+            }
+
+        }
+
+        else if(
+
+            this.imageZoom <= 1.01 &&
+
+            duration < 320 &&
+
+            Math.abs(deltaX) < 12 &&
+
+            Math.abs(deltaY) < 12
+
+        ){
+
+            const currentTime = Date.now();
+
+            if(currentTime - this.lastImageTap < 320){
+
+                this.toggleImageZoom();
+
+                this.lastImageTap = 0;
+
+            }
+
+            else {
+
+                this.lastImageTap = currentTime;
+
+            }
+
+        }
+
+        this.imageTouchStart = null;
+
+    }
+
+    toggleImageZoom() {
+
+        if(this.imageZoom > 1){
+
+            this.resetImageZoom();
+
+            return;
+
+        }
+
+        this.imageZoom = 2.5;
+
+        this.imageTranslateX = 0;
+
+        this.imageTranslateY = 0;
+
+        this.applyImageTransform(true);
+
+    }
+
+    constrainImagePan() {
+
+        const maximumX = Math.max(
+
+            0,
+
+            this.viewerImage.clientWidth * (this.imageZoom - 1) / 2
+
+        );
+
+        const maximumY = Math.max(
+
+            0,
+
+            this.viewerImage.clientHeight * (this.imageZoom - 1) / 2
+
+        );
+
+        this.imageTranslateX = Math.max(
+
+            -maximumX,
+
+            Math.min(maximumX, this.imageTranslateX)
+
+        );
+
+        this.imageTranslateY = Math.max(
+
+            -maximumY,
+
+            Math.min(maximumY, this.imageTranslateY)
+
+        );
+
+    }
+
+    applyImageTransform(animate = true) {
+
+        this.viewerImage.style.transition = animate
+
+            ? "transform .25s ease"
+
+            : "none";
+
+        this.viewerImage.style.transform =
+
+            `translate3d(${this.imageTranslateX}px, ${this.imageTranslateY}px, 0) scale(${this.imageZoom})`;
+
+        this.viewerImage.classList.toggle("is-zoomed", this.imageZoom > 1);
+
+    }
+
+    resetImageZoom() {
+
+        this.imageZoom = 1;
+
+        this.imageTranslateX = 0;
+
+        this.imageTranslateY = 0;
+
+        this.pinchStartDistance = 0;
+
+        this.applyImageTransform(true);
+
+    }
+
+    handleVideoTouchStart(event) {
+
+        const target = event.target instanceof Element ? event.target : null;
+
+        if(event.touches.length !== 1 || target?.closest("video, button")){
+
+            this.videoTouchStart = null;
+
+            return;
+
+        }
+
+        const touch = event.touches[0];
+
+        this.videoTouchStart = {
+
+            x: touch.clientX,
+
+            y: touch.clientY,
+
+            time: Date.now()
+
+        };
+
+    }
+
+    handleVideoTouchEnd(event) {
+
+        if(!this.videoTouchStart || event.changedTouches.length === 0){
+
+            this.videoTouchStart = null;
+
+            return;
+
+        }
+
+        const touch = event.changedTouches[0];
+
+        const deltaX = touch.clientX - this.videoTouchStart.x;
+
+        const deltaY = touch.clientY - this.videoTouchStart.y;
+
+        const duration = Date.now() - this.videoTouchStart.time;
+
+        if(
+
+            duration < 800 &&
+
+            Math.abs(deltaX) >= 55 &&
+
+            Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+
+        ){
+
+            if(deltaX < 0){
+
+                this.nextVideo();
+
+            }
+
+            else {
+
+                this.previousVideo();
+
+            }
+
+        }
+
+        this.videoTouchStart = null;
 
     }
 
@@ -575,9 +1344,93 @@ class PortfolioApp {
 
     }
 
+    trapDialogFocus(event, dialog) {
+
+        if(event.key !== "Tab"){
+
+            return false;
+
+        }
+
+        const focusable = [...dialog.querySelectorAll(
+
+            "button:not([disabled]), video[controls], [href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"
+
+        )].filter(element => !element.hidden && element.offsetParent !== null);
+
+        if(focusable.length === 0){
+
+            event.preventDefault();
+
+            return true;
+
+        }
+
+        const first = focusable[0];
+
+        const last = focusable[focusable.length - 1];
+
+        if(event.shiftKey && document.activeElement === first){
+
+            event.preventDefault();
+
+            last.focus();
+
+        }
+
+        else if(!event.shiftKey && document.activeElement === last){
+
+            event.preventDefault();
+
+            first.focus();
+
+        }
+
+        return true;
+
+    }
+
+    rememberFocus() {
+
+        this.lastFocusedElement = document.activeElement instanceof HTMLElement
+
+            ? document.activeElement
+
+            : null;
+
+    }
+
+    restoreFocus() {
+
+        const target = this.lastFocusedElement;
+
+        this.lastFocusedElement = null;
+
+        if(target?.isConnected){
+
+            target.focus();
+
+        }
+
+    }
+
+    setBackgroundInert(isInert) {
+
+        this.app.inert = isInert;
+
+        this.navigation.inert = isInert;
+
+    }
+
     handleKeyboard(event) {
 
         if(this.videoViewer.classList.contains("show")){
+
+            if(this.trapDialogFocus(event, this.videoViewer)){
+
+                return;
+
+            }
 
             if(event.key === "Escape"){
 
@@ -602,6 +1455,12 @@ class PortfolioApp {
         }
 
         if(this.viewer.classList.contains("show")){
+
+            if(this.trapDialogFocus(event, this.viewer)){
+
+                return;
+
+            }
 
             if(event.key === "Escape"){
 
@@ -659,6 +1518,10 @@ class PortfolioApp {
 
         }
 
+        this.rememberFocus();
+
+        this.setBackgroundInert(true);
+
         this.currentVideoIndex = index;
 
         this.updateViewerVideo(videos, true);
@@ -666,6 +1529,12 @@ class PortfolioApp {
         this.videoViewer.classList.add("show");
 
         this.videoViewer.setAttribute("aria-hidden", "false");
+
+        window.setTimeout(() => {
+
+            this.closeVideoViewer.focus({ preventScroll: true });
+
+        }, 400);
 
     }
 
@@ -706,6 +1575,8 @@ class PortfolioApp {
     updateViewerVideo(videos, autoplay = false) {
 
         const video = videos[this.currentVideoIndex];
+
+        this.videoViewer.classList.remove("media-error");
 
         this.videoViewerPlayer.pause();
 
@@ -755,6 +1626,12 @@ class PortfolioApp {
 
         this.videoViewerPlayer.load();
 
+        this.videoViewer.classList.remove("media-error");
+
+        this.setBackgroundInert(false);
+
+        this.restoreFocus();
+
     }
 
     openImage(index) {
@@ -767,13 +1644,31 @@ class PortfolioApp {
 
         }
 
+        this.rememberFocus();
+
+        this.setBackgroundInert(true);
+
         this.currentImageIndex = index;
 
-        this.viewerImage.src = `images/${images[index]}`;
+        this.resetImageZoom();
+
+        this.viewer.classList.remove("media-error");
+
+        this.viewerImage.alt = this.getImageAlt(images[index]);
+
+        this.viewerImage.src = `images/${encodeURIComponent(images[index])}`;
 
         this.viewerCount.textContent = `${index + 1} / ${images.length}`;
 
         this.viewer.classList.add("show");
+
+        this.viewer.setAttribute("aria-hidden", "false");
+
+        window.setTimeout(() => {
+
+            this.closeViewer.focus({ preventScroll: true });
+
+        }, 400);
 
     }
 
@@ -813,7 +1708,13 @@ class PortfolioApp {
 
     updateViewerImage(images) {
 
-        this.viewerImage.src = `images/${images[this.currentImageIndex]}`;
+        this.resetImageZoom();
+
+        this.viewer.classList.remove("media-error");
+
+        this.viewerImage.alt = this.getImageAlt(images[this.currentImageIndex]);
+
+        this.viewerImage.src = `images/${encodeURIComponent(images[this.currentImageIndex])}`;
 
         this.viewerCount.textContent = `${this.currentImageIndex + 1} / ${images.length}`;
 
@@ -823,7 +1724,19 @@ class PortfolioApp {
 
         this.viewer.classList.remove("show");
 
+        this.viewer.setAttribute("aria-hidden", "true");
+
+        this.resetImageZoom();
+
         this.viewerImage.src = "";
+
+        this.viewerImage.alt = "";
+
+        this.viewer.classList.remove("media-error");
+
+        this.setBackgroundInert(false);
+
+        this.restoreFocus();
 
     }
 

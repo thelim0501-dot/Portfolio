@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const sharp = require("sharp");
 
 const projectRoot = path.resolve(__dirname, "..");
 const outputFolder = path.join(projectRoot, "dist");
@@ -28,6 +30,8 @@ function copyRequiredFile(relativePath){
 
 }
 
+async function buildPublicPortfolio(){
+
 fs.rmSync(outputFolder, { recursive: true, force: true });
 
 fs.mkdirSync(outputFolder, { recursive: true });
@@ -35,6 +39,8 @@ fs.mkdirSync(outputFolder, { recursive: true });
 copyRequiredFile("index.html");
 
 copyRequiredFile("projects.json");
+
+copyRequiredFile("favicon.svg");
 
 fs.cpSync(
 
@@ -92,7 +98,15 @@ const publicPosters = [...new Set(
 
 )];
 
-for(const fileName of [...new Set([...publicImages, ...publicPosters])]){
+const publicVisuals = [...new Set([...publicImages, ...publicPosters])];
+
+const thumbnailFolder = path.join(outputFolder, "thumbnails");
+
+const thumbnailMap = {};
+
+fs.mkdirSync(thumbnailFolder, { recursive: true });
+
+for(const fileName of publicVisuals){
 
     if(typeof fileName !== "string" || path.basename(fileName) !== fileName){
 
@@ -102,12 +116,66 @@ for(const fileName of [...new Set([...publicImages, ...publicPosters])]){
 
     copyRequiredFile(path.join("images", fileName));
 
+    const sourceImagePath = path.join(projectRoot, "images", fileName);
+
+    const thumbnailName = `${crypto
+
+        .createHash("sha1")
+
+        .update(fileName)
+
+        .update(fs.readFileSync(sourceImagePath))
+
+        .digest("hex")
+
+        .slice(0, 16)}.webp`;
+
+    await sharp(sourceImagePath)
+
+        .rotate()
+
+        .resize({ width: 1280, withoutEnlargement: true })
+
+        .webp({ quality: 82, smartSubsample: true })
+
+        .toFile(path.join(thumbnailFolder, thumbnailName));
+
+    thumbnailMap[fileName] = `thumbnails/${thumbnailName}`;
+
 }
+
+fs.writeFileSync(
+
+    path.join(outputFolder, "thumbnail-map.json"),
+
+    JSON.stringify(thumbnailMap, null, 2),
+
+    "utf8"
+
+);
 
 fs.writeFileSync(path.join(outputFolder, ".nojekyll"), "", "utf8");
 
+const thumbnailBytes = fs.readdirSync(thumbnailFolder)
+
+    .reduce((total, fileName) => {
+
+        return total + fs.statSync(path.join(thumbnailFolder, fileName)).size;
+
+    }, 0);
+
 console.log(
 
-    `Public build complete: ${publicImages.length} images, ${publicPosters.length} posters, ${projects[0].videos?.length || 0} videos`
+    `Public build complete: ${publicImages.length} images, ${publicPosters.length} posters, ${projects[0].videos?.length || 0} videos, ${(thumbnailBytes / 1024 / 1024).toFixed(1)} MB thumbnails`
 
 );
+
+}
+
+buildPublicPortfolio().catch(error => {
+
+    console.error(error);
+
+    process.exitCode = 1;
+
+});

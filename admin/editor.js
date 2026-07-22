@@ -47,8 +47,15 @@ const settingsGitState = document.getElementById("settingsGitState");
 const settingsR2State = document.getElementById("settingsR2State");
 const settingsDataState = document.getElementById("settingsDataState");
 const settingsIssueList = document.getElementById("settingsIssueList");
+const settingsDeployState = document.getElementById("settingsDeployState");
+const settingsDeployTime = document.getElementById("settingsDeployTime");
+const settingsPublicSite = document.getElementById("settingsPublicSite");
+const imageAltGroup = document.getElementById("imageAltGroup");
+const imageAltInput = document.getElementById("imageAltInput");
 
 let images = [];
+
+let imageAlts = {};
 
 let videos = [];
 
@@ -180,6 +187,34 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     renameBtn.addEventListener("click", renameImage);
 
+    imageAltInput.addEventListener("input", () => {
+
+        if(selectedImages.length !== 1 || selectedIndex < 0){
+
+            return;
+
+        }
+
+        const fileName = images[selectedIndex];
+
+        const description = imageAltInput.value.trim();
+
+        if(description){
+
+            imageAlts[fileName] = description;
+
+        }
+
+        else {
+
+            delete imageAlts[fileName];
+
+        }
+
+        autoSave();
+
+    });
+
     const renameInput = document.getElementById("renameInput");
 
 renameInput.addEventListener("keydown",(e)=>{
@@ -240,6 +275,8 @@ window.addEventListener("beforeunload", () => {
 
         clearTimeout(autoSaveTimer);
 
+        autoSaveTimer = null;
+
         saveProjects();
 
     }
@@ -265,6 +302,12 @@ async function loadProjects() {
             ? projects[0].videos.filter(video => video && video.url)
 
             : [];
+
+        imageAlts = projects[0].imageAlts && typeof projects[0].imageAlts === "object"
+
+            ? { ...projects[0].imageAlts }
+
+            : {};
 
     }
 
@@ -717,6 +760,8 @@ const deleteBtn =
 
     const duplicateBtn = document.getElementById("duplicateBtn");
 
+    imageAltGroup.style.display = "none";
+
     noSelection.style.display = "none";
     propertyContent.style.display = "block";
 
@@ -785,6 +830,10 @@ if(selectedPage >= 0){
 
         renameInput.value =
             images[selectedIndex].replace(/\.[^/.]+$/, "");
+
+        imageAltGroup.style.display = "";
+
+        imageAltInput.value = imageAlts[images[selectedIndex]] || "";
 
     }
     else{
@@ -1243,6 +1292,22 @@ async function swapImages(fromIndex, toIndex){
 
 }
 
+function pruneImageAlts(){
+
+    const referencedImages = new Set(images.filter(Boolean));
+
+    Object.keys(imageAlts).forEach(fileName => {
+
+        if(!referencedImages.has(fileName)){
+
+            delete imageAlts[fileName];
+
+        }
+
+    });
+
+}
+
 async function moveImageTo(fromIndex, toIndex){
 
     if(fromIndex === toIndex){
@@ -1479,6 +1544,8 @@ async function deleteImage(){
     selectedPage = -1;
     selectedIndex = -1;
 
+    pruneImageAlts();
+
     document.getElementById("propertyContent").style.display = "none";
     document.getElementById("noSelection").style.display = "block";
 
@@ -1518,6 +1585,8 @@ async function deletePage(){
 
     images = images.filter(image => image != null);
 
+    pruneImageAlts();
+
     selectedPage = -1;
     selectedImages = [];
     selectedIndex = -1;
@@ -1539,7 +1608,13 @@ async function deletePage(){
 
 function saveState(){
 
-    undoStack.push([...images]);
+    undoStack.push({
+
+        images: [...images],
+
+        imageAlts: { ...imageAlts }
+
+    });
 
     if(undoStack.length > 100){
 
@@ -1561,9 +1636,23 @@ function autoSave(){
 
     autoSaveTimer = setTimeout(async()=>{
 
-        await saveProjects();
+        autoSaveTimer = null;
 
-        console.log("Auto Saved");
+        try {
+
+            await saveProjects();
+
+            console.log("Auto Saved");
+
+        }
+
+        catch(error){
+
+            console.error("Auto save failed:", error);
+
+            setVideoStatus(error.message || "Auto save failed.", "error");
+
+        }
 
     }, AUTO_SAVE_DELAY);
 
@@ -1581,9 +1670,19 @@ async function undo(){
 
     }
 
-    redoStack.push([...images]);
+    redoStack.push({
 
-    images = undoStack.pop();
+        images: [...images],
+
+        imageAlts: { ...imageAlts }
+
+    });
+
+    const previousState = undoStack.pop();
+
+    images = previousState.images;
+
+    imageAlts = previousState.imageAlts;
 
     selectedImages = [];
     selectedIndex = -1;
@@ -1611,9 +1710,19 @@ async function redo(){
 
     }
 
-    undoStack.push([...images]);
+    undoStack.push({
 
-    images = redoStack.pop();
+        images: [...images],
+
+        imageAlts: { ...imageAlts }
+
+    });
+
+    const nextState = redoStack.pop();
+
+    images = nextState.images;
+
+    imageAlts = nextState.imageAlts;
 
     selectedImages = [];
     selectedIndex = -1;
@@ -1635,7 +1744,7 @@ async function redo(){
 
 async function saveProjects(){
 
-    await fetch("/save",{
+    const response = await fetch("/save",{
 
         method:"POST",
 
@@ -1649,11 +1758,23 @@ async function saveProjects(){
 
         images: images.filter(image => image != null),
 
-        videos
+        videos,
+
+        imageAlts
 
         })
 
     });
+
+    const result = await response.json();
+
+    if(!response.ok || !result.success){
+
+        throw new Error(result.message || "Save failed.");
+
+    }
+
+    return result;
 
 }
 
@@ -2211,6 +2332,8 @@ async function publishProjects(){
 
         clearTimeout(autoSaveTimer);
 
+        autoSaveTimer = null;
+
         await saveProjects();
 
         const response = await fetch("/publish", {
@@ -2234,6 +2357,8 @@ async function publishProjects(){
         }
 
         setPublishStatus(result.message, "ready");
+
+        window.setTimeout(loadDeploymentStatus, 1500);
 
     }
 
@@ -2471,6 +2596,14 @@ async function renameImage(){
     saveState();
 
     images[selectedIndex] = newName;
+
+    if(imageAlts[oldName]){
+
+        imageAlts[newName] = imageAlts[oldName];
+
+        delete imageAlts[oldName];
+
+    }
 
     autoSave();
 
@@ -2772,6 +2905,8 @@ async function createManualBackup(){
 
         clearTimeout(autoSaveTimer);
 
+        autoSaveTimer = null;
+
         await saveProjects();
 
         const response = await fetch("/backups/create", { method: "POST" });
@@ -2940,6 +3075,64 @@ async function loadSystemStatus(){
 
 }
 
+async function loadDeploymentStatus(){
+
+    settingsDeployState.textContent = "Checking...";
+
+    settingsDeployState.dataset.state = "loading";
+
+    try {
+
+        const response = await fetch("/deployment/status");
+
+        const result = await response.json();
+
+        if(!response.ok || !result.ready){
+
+            throw new Error(result.message || "Deployment status is unavailable.");
+
+        }
+
+        const successful = result.conclusion === "success";
+
+        const running = result.state === "in_progress" || result.state === "queued";
+
+        settingsDeployState.textContent = running
+
+            ? "Deploying"
+
+            : successful
+
+                ? "Live"
+
+                : result.conclusion || result.state || "Unknown";
+
+        settingsDeployState.dataset.state = successful || running ? "ready" : "error";
+
+        settingsDeployTime.textContent = result.lastSuccessAt
+
+            ? new Date(result.lastSuccessAt).toLocaleString("ko-KR")
+
+            : "No successful deploy yet";
+
+        settingsPublicSite.href = result.publicUrl;
+
+    }
+
+    catch(error){
+
+        settingsDeployState.textContent = "Unavailable";
+
+        settingsDeployState.dataset.state = "error";
+
+        settingsDeployTime.textContent = "--";
+
+        settingsPublicSite.removeAttribute("href");
+
+    }
+
+}
+
 async function loadSettingsStatus(){
 
     refreshSettingsBtn.disabled = true;
@@ -2953,6 +3146,8 @@ async function loadSettingsStatus(){
             loadR2Status(),
 
             loadSystemStatus(),
+
+            loadDeploymentStatus(),
 
             loadBackupList()
 
