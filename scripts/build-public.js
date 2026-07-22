@@ -56,6 +56,18 @@ fs.cpSync(
 
 );
 
+const assetVersion = (process.env.GITHUB_SHA || Date.now().toString()).slice(0, 12);
+
+const publicIndexPath = path.join(outputFolder, "index.html");
+
+const versionedIndex = fs.readFileSync(publicIndexPath, "utf8")
+
+    .replace('href="css/style.css"', `href="css/style.css?v=${assetVersion}"`)
+
+    .replace('src="js/app.js"', `src="js/app.js?v=${assetVersion}"`);
+
+fs.writeFileSync(publicIndexPath, versionedIndex, "utf8");
+
 const projects = JSON.parse(
 
     fs.readFileSync(path.join(projectRoot, "projects.json"), "utf8")
