@@ -13,11 +13,27 @@
     box-sizing:border-box;
 }
 
+:root{
+
+    --portfolio-viewport-height:100vh;
+
+}
+
+@supports (height:100svh){
+
+    :root{
+
+        --portfolio-viewport-height:100svh;
+
+    }
+
+}
+
 html,
 body{
 
     width:100%;
-    height:100%;
+    height:var(--portfolio-viewport-height);
 
     overflow:hidden;
 
@@ -39,8 +55,8 @@ body{
 
 #app{
 
-    width:100vw;
-    height:100vh;
+    width:100%;
+    height:var(--portfolio-viewport-height);
 
     position:relative;
 
@@ -104,7 +120,20 @@ body{
 
 .cover-content{
 
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:100%;
+
+    -webkit-transform:translate(-50%,-50%);
+    transform:translate(-50%,-50%);
+
     text-align:center;
+
+    -webkit-backface-visibility:hidden;
+    backface-visibility:hidden;
 
 }
 
@@ -329,7 +358,7 @@ body{
 
     width:100%;
 
-    height:100vh;
+    height:100%;
 
 }
 
@@ -1503,7 +1532,10 @@ body{
 #loader{
 
     position:fixed;
-    inset:0;
+    inset:0 auto auto 0;
+
+    width:100%;
+    height:var(--portfolio-viewport-height);
 
     display:flex;
     justify-content:center;
@@ -1528,7 +1560,20 @@ body{
 
 .loader-content{
 
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:100%;
+
+    -webkit-transform:translate(-50%,-50%);
+    transform:translate(-50%,-50%);
+
     text-align:center;
+
+    -webkit-backface-visibility:hidden;
+    backface-visibility:hidden;
 
 }
 
