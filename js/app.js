@@ -17,6 +17,7 @@ class PortfolioApp {
         this.pageProgress = document.getElementById("pageProgress");
         this.pageProgressBar = document.getElementById("pageProgressBar");
         this.navigation = document.getElementById("navigation");
+        this.archiveBtn = document.getElementById("archiveBtn");
 
         this.viewer = document.getElementById("viewer");
         this.viewerImage = document.getElementById("viewerImage");
@@ -118,6 +119,8 @@ class PortfolioApp {
 
         this.nextBtn.addEventListener("click", () => this.nextPage());
 
+        this.archiveBtn.addEventListener("click", () => this.returnToArchive());
+
         document.addEventListener("keydown", event => {
 
             if(event.key === "Tab"){
@@ -199,6 +202,7 @@ class PortfolioApp {
         [
             this.prevBtn,
             this.nextBtn,
+            this.archiveBtn,
             this.viewerPrev,
             this.viewerNext,
             this.closeViewer,
@@ -1691,6 +1695,24 @@ class PortfolioApp {
 
     }
 
+    returnToArchive() {
+
+        const archivePageIndex = this.pages.findIndex(page =>
+            page.classList.contains("media-menu-page")
+        );
+
+        if(archivePageIndex < 0){
+
+            return;
+
+        }
+
+        this.currentPage = archivePageIndex;
+
+        this.updatePage();
+
+    }
+
     updatePage() {
 
         this.pages = [...document.querySelectorAll(".page")];
@@ -1727,6 +1749,17 @@ class PortfolioApp {
         this.nextBtn.disabled = this.currentPage === this.pages.length - 1;
 
         const activePage = this.pages[this.currentPage];
+
+        const archivePageIndex = this.pages.findIndex(page =>
+            page.classList.contains("media-menu-page")
+        );
+
+        const showArchiveButton =
+            archivePageIndex >= 0 &&
+            this.currentPage > archivePageIndex &&
+            Boolean(activePage && this.portfolioContainer.contains(activePage));
+
+        this.archiveBtn.hidden = !showArchiveButton;
 
         if(this.currentPage >= 1){
 

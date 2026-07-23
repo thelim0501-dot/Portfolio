@@ -662,6 +662,7 @@ body{
 .image-box:focus,
 .film-card:focus,
 .media-tab:focus,
+#archiveBtn:focus,
 #navigation button:focus,
 #viewer button:focus,
 #videoViewer button:focus,
@@ -674,6 +675,7 @@ body{
 html.keyboard-navigation .image-box:focus-visible,
 html.keyboard-navigation .film-card:focus-visible,
 html.keyboard-navigation .media-tab:focus-visible,
+html.keyboard-navigation #archiveBtn:focus-visible,
 html.keyboard-navigation #navigation button:focus-visible,
 html.keyboard-navigation #viewer button:focus-visible,
 html.keyboard-navigation #videoViewer button:focus-visible,
@@ -1034,6 +1036,52 @@ html.keyboard-navigation #videoViewerPlayer:focus-visible{
 /* ======================================================
     NAVIGATION
 ====================================================== */
+
+#archiveBtn{
+
+    position:fixed;
+
+    top:max(24px,env(safe-area-inset-top));
+    left:max(28px,env(safe-area-inset-left));
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    padding:10px 0;
+
+    border:0;
+
+    background:transparent;
+
+    color:rgba(255,255,255,.68);
+
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:3px;
+
+    cursor:pointer;
+
+    transition:
+        color .25s ease,
+        transform .25s ease;
+
+    z-index:990;
+
+}
+
+#archiveBtn[hidden]{
+
+    display:none;
+
+}
+
+#archiveBtn span{
+
+    font-size:16px;
+    letter-spacing:0;
+
+}
 
 #navigation{
 
@@ -1593,6 +1641,14 @@ html.keyboard-navigation #videoViewerPlayer:focus-visible{
 
 @media (hover:hover) and (pointer:fine){
 
+    #archiveBtn:hover{
+
+        color:#fff;
+
+        transform:translateX(-3px);
+
+    }
+
     .media-tab:hover{
 
         border-color:rgba(255,255,255,.72);
@@ -1964,6 +2020,18 @@ html.keyboard-navigation #videoViewerPlayer:focus-visible{
 }
 
 @media (max-width:760px){
+
+    #archiveBtn{
+
+        top:max(14px,env(safe-area-inset-top));
+        left:max(18px,env(safe-area-inset-left));
+
+        padding:8px 0;
+
+        font-size:10px;
+        letter-spacing:2px;
+
+    }
 
     .cover-content h1,
     #loaderTitle{
